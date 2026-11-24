@@ -118,6 +118,13 @@ form[data-form=product] label.f{color:#5A6385}
 .kpi .v{font-size:21px;font-weight:800;letter-spacing:-.4px;margin-top:2px}
 .kpi.hl{background:var(--pri);border-color:var(--pri);color:#fff} .kpi.hl .l{color:#C9D2FF}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:900px){
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .hgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:0 18px;align-items:start}
+  .hgrid .htips{grid-column:2;grid-row:1}
+  .hgrid .hcards{grid-column:1;grid-row:1;grid-template-columns:repeat(3,1fr)}
+  .hgrid .htips{margin-top:18px}
+}
 .mod{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:16px;border-radius:var(--r);background:#fff;border:1px solid var(--line);box-shadow:var(--sh);cursor:pointer;text-decoration:none;color:inherit;min-height:104px}
 .mod .ic{width:44px;height:44px;border-radius:13px;background:var(--pri-l);color:var(--pri);display:flex;align-items:center;justify-content:center}
 .mod:nth-child(3n+2) .ic{background:var(--acc-l);color:#C25E00}
@@ -487,7 +494,7 @@ function render(){
   const R=VIEWS[r]||VIEWS.home;
   const active=PARENT[r]||r;
   $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===active||(active==='mas'&&a.dataset.r==='mas')));
-  $('#view').classList.toggle('wideV',r==='vender');
+  $('#view').classList.toggle('wideV',r==='vender'||r==='home');
   $('#ttl').textContent=r==='home'?S.meta.business:(TITLES[r]||'');$('.top').classList.toggle('ishome',r==='home');
   $('.back').classList.toggle('show',r!=='home'&&!['vender','productos','caja','mas'].includes(r));
   const c=openCaja();
@@ -518,6 +525,7 @@ function onboarding(){
 const VIEWS={};
 
 /* INICIO */
+const firstName=n=>{const w=(n||'').trim().split(/\s+/)[0]||'';return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()};
 VIEWS.home={
  html(){
   const [a,b]=range('hoy'),ss=salesIn(a,b),ven=sum(ss.filter(s=>s.method!=='autoconsumo'),s=>s.total);
@@ -525,15 +533,17 @@ VIEWS.home={
   const tips=insights();
   return `
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
-   <div class="mb"><div class="mut sm">${esc(fmtLong(Date.now()).replace(/^./,c=>c.toUpperCase()))} · ${esc(S.meta.business)}</div><h2 style="font-size:24px;letter-spacing:-.5px">Hola, ${esc(S.meta.owner)} 👋</h2></div>
+   <div class="mb"><div class="mut sm">${esc(fmtLong(Date.now()).replace(/^./,c=>c.toUpperCase()))} · ${esc(S.meta.business)}</div><h2 style="font-size:24px;letter-spacing:-.5px">Hola, ${esc(firstName(S.meta.owner))} 👋</h2></div>
    <div class="kpis">
      <div class="kpi hl"><div class="l">Vendido hoy</div><div class="v">${money(ven)}</div></div>
      <div class="kpi"><div class="l">Ganancia estimada hoy</div><div class="v">${money(profit(ss))}</div></div>
      <div class="kpi"><div class="l">Te deben</div><div class="v">${money(totalCartera())}</div></div>
      <div class="kpi"><div class="l">Productos por reponer</div><div class="v">${S.products.filter(p=>p.stock<=p.min).length}</div></div>
    </div>
-   ${tips.length?`<div class="mt2"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button data-act="go" data-to="${t.go}">${t.l}</button>`:''}</div>`).join('')}</div>`:''}
-   <div class="cards mt2">${mods.map(m=>`<a class="mod" data-act="go" data-to="${m[0]}">${`<div class="ic">${ic(m[1],'lg')}</div>`}<b>${m[2]}</b><span>${m[3]}</span></a>`).join('')}</div>`;
+   <div class="hgrid">
+   ${tips.length?`<div class="mt2 htips"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button data-act="go" data-to="${t.go}">${t.l}</button>`:''}</div>`).join('')}</div>`:''}
+   <div class="cards mt2 hcards">${mods.map(m=>`<a class="mod" data-act="go" data-to="${m[0]}">${`<div class="ic">${ic(m[1],'lg')}</div>`}<b>${m[2]}</b><span>${m[3]}</span></a>`).join('')}</div>
+   </div>`;
  }
 };
 

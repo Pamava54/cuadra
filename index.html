@@ -623,9 +623,8 @@ function productForm(id,pre={}){
     <div class="fg"><label class="f">Precio de venta</label><input class="in money" name="price" inputmode="numeric" required value="${d.price?fmtInt(d.price):''}" placeholder="0"></div>
     <div class="mut xs" style="margin:-6px 0 8px">Escribe el costo y el margen que quieres ganar, y Cuadra calcula el precio de venta. Ejemplo: costo $20.000 y margen 20% → $20.000 ÷ 0,80 = <b>$25.000</b>. También puedes escribir el precio y verás el margen.</div>
     <div class="mut sm" id="margin" style="margin:0 0 12px;line-height:1.5"></div>
-    <div class="g3"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
-    <div class="fg"><label class="f">Avisar desde</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div>
-    <div class="fg"><label class="f">Ubicación</label><select class="in" name="loc">${['Piso de venta','Bodega','Piso y bodega'].map(x=>`<option ${x===d.loc?'selected':''}>${x}</option>`).join('')}</select></div></div>
+    <div class="g2"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
+    <div class="fg"><label class="f">Avisar cuando queden</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div></div>
     <div class="fg"><label class="f">Categoría (opcional)</label><input class="in" name="cat" value="${esc(d.cat||'')}" placeholder="Ej: Aseo, Lácteos, Papelería"></div>
     <button class="btn pri big">Guardar producto</button>
     ${p?`<button type="button" class="btn danger big mt" data-act="del-product" data-id="${p.id}">${ic('trash','sm')} Eliminar</button>`:''}
@@ -648,7 +647,7 @@ function marginHint(){
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
-  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:fd.get('cat').trim(),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),loc:fd.get('loc')};
+  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:fd.get('cat').trim(),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min'))};
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
   if(o.barcode){const dup=S.products.find(p=>p.barcode===o.barcode&&p.id!==id);if(dup){toast(`Ese código ya es de “${dup.name}”`,'bad');return}}

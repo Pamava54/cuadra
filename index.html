@@ -49,6 +49,8 @@ nav.nav a.on{color:var(--pri)}
 nav.nav a.on svg{stroke-width:2.4}
 nav.nav .wide-only{display:none}
 .sidelogo{display:none}
+.navlbl,.navbiz{display:none}
+nav.nav a.on svg{background:var(--pri-l);padding:4px 16px;width:24px;height:24px;box-sizing:content-box;border-radius:999px}
 
 @media (min-width:900px){
   #shell{display:grid;grid-template-columns:var(--side) 1fr;grid-template-rows:auto 1fr}
@@ -56,7 +58,19 @@ nav.nav .wide-only{display:none}
   main{grid-column:2;grid-row:2;padding-bottom:40px;padding:22px 26px}
   nav.nav{position:sticky;top:0;grid-column:1;grid-row:1 / span 2;height:100vh;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:14px 10px;gap:2px;align-self:start}
   nav.nav a{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:46px;padding:0 14px;border-radius:12px;font-size:15px}
-  nav.nav a.on{background:var(--pri-l)}
+  nav.nav{background:linear-gradient(180deg,#151A2E 0%,#1A2150 55%,#1B2FA8 130%);border-right:0;padding:16px 12px;gap:3px;box-shadow:4px 0 24px rgba(21,26,46,.18)}
+  nav.nav .sidelogo{color:#fff}
+  nav.nav .sidelogo span{color:#fff}
+  .navlbl{display:block!important;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.38);padding:16px 14px 6px}
+  nav.nav a{color:rgba(255,255,255,.72);position:relative;transition:background .15s,color .15s,transform .15s}
+  nav.nav a:hover{background:rgba(255,255,255,.08);color:#fff}
+  nav.nav a.on{background:linear-gradient(90deg,rgba(255,138,31,.26),rgba(255,255,255,.06));color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  nav.nav a.on::before{content:"";position:absolute;left:-12px;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+  nav.nav a.on svg{color:var(--acc);stroke-width:2.2;background:none;padding:0;width:22px;height:22px;border-radius:0}
+  .navbiz{display:flex!important;margin-top:auto;align-items:center;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1)}
+  .navbiz .av{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--acc),#FFB766);color:#fff;font-weight:800;display:grid;place-items:center;font-size:17px;flex:none}
+  .navbiz b{display:block;color:#fff;font-size:14px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+  .navbiz small{color:rgba(255,255,255,.55);font-size:12px;font-weight:600}
   nav.nav .wide-only{display:flex}
   nav.nav .narrow-only{display:none}
   .sidelogo{display:flex;padding:8px 10px 18px}
@@ -463,8 +477,8 @@ async function scanner(onCode,continuous){
 
 /* ---------- router y estructura ---------- */
 const NAV=[
- {r:'home',l:'Inicio',i:'home'},{r:'vender',l:'Vender',i:'cart'},{r:'productos',l:'Productos',i:'box'},
- {r:'compras',l:'Compras',i:'bag',w:1},{r:'clientes',l:'Clientes',i:'users',w:1},{r:'caja',l:'Caja',i:'wallet'},
+ {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},{r:'productos',l:'Productos',i:'box',g:'Inventario'},
+ {r:'compras',l:'Compras',i:'bag',w:1},{r:'clientes',l:'Clientes',i:'users',w:1,g:'Negocio'},{r:'caja',l:'Caja',i:'wallet'},
  {r:'reportes',l:'Reportes',i:'chart',w:1},{r:'mas',l:'Más',i:'more',n:1}
 ];
 const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',compras:'Compras',compra:'Nueva compra',clientes:'Clientes',caja:'Caja',reportes:'Reportes',mas:'Más'};
@@ -483,8 +497,9 @@ function shell(){
     <main id="view"></main>
     <nav class="nav" id="nav">
       <div class="logo sidelogo">${LOGO}<span>cuadra</span></div>
-      ${NAV.map(n=>`<a data-act="go" data-to="${n.r}" data-r="${n.r}" class="${n.w?'wide-only':''} ${n.n?'narrow-only':''}">${ic(n.i)}<span>${n.l}</span></a>`).join('')}
-      <a data-act="go" data-to="mas" data-r="mas" class="wide-only">${ic('gear')}<span>Ajustes</span></a>
+      ${NAV.map(n=>`${n.g?`<div class="navlbl">${n.g}</div>`:''}<a data-act="go" data-to="${n.r}" data-r="${n.r}" class="${n.w?'wide-only':''} ${n.n?'narrow-only':''}">${ic(n.i)}<span>${n.l}</span></a>`).join('')}
+      <div class="navlbl">Sistema</div><a data-act="go" data-to="mas" data-r="mas" class="wide-only">${ic('gear')}<span>Ajustes</span></a>
+      <div class="navbiz"><div class="av" id="navav"></div><div><b id="navbn"></b><small id="navtp"></small></div></div>
     </nav>`;
 }
 function render(){
@@ -494,6 +509,7 @@ function render(){
   const R=VIEWS[r]||VIEWS.home;
   const active=PARENT[r]||r;
   $$('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.r===active||(active==='mas'&&a.dataset.r==='mas')));
+  {const bn=S.meta.business||'';$('#navav').textContent=(bn.trim()[0]||'C').toUpperCase();$('#navbn').textContent=bn;$('#navtp').textContent=S.meta.type||'Mi negocio'}
   $('#view').classList.toggle('wideV',r==='vender'||r==='home');
   $('#ttl').textContent=r==='home'?S.meta.business:(TITLES[r]||'');$('.top').classList.toggle('ishome',r==='home');
   $('.back').classList.toggle('show',r!=='home'&&!['vender','productos','caja','mas'].includes(r));

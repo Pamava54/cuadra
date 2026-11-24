@@ -1,7 +1,7 @@
 {
-  "name": "Cuadra · tu tienda al día",
+  "name": "Cuadra · tu negocio al día",
   "short_name": "Cuadra",
-  "description": "Ventas, inventario, caja y fiados para tu negocio. Funciona sin internet.",
+  "description": "Ventas, inventario, caja y clientes para cualquier negocio. Funciona sin internet.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -220,6 +220,50 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
   #print hr{border:0;border-top:1px dashed #000;margin:6px 0}
   @page{margin:4mm}
 }
+
+/* ---------- pantalla de entrada ---------- */
+.gate{position:fixed;inset:0;z-index:200;display:grid;grid-template-columns:1.15fr 1fr;overflow:auto;background:#EEF1F9}
+.gate.inline{position:relative;min-height:100vh;z-index:1;grid-column:1 / -1;grid-row:1 / -1;width:100%}
+.gate.out{animation:gout .5s ease forwards}
+@keyframes gout{to{opacity:0;transform:scale(1.03);visibility:hidden}}
+.gbg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.gbg i{position:absolute;border-radius:50%}
+.gbg .b1{width:980px;height:980px;left:-300px;top:-380px;background:#fff;opacity:.95;animation:fl1 16s ease-in-out infinite alternate}
+.gbg .b2{width:900px;height:900px;right:-260px;bottom:-420px;background:radial-gradient(circle,#CFD8FF 0%,rgba(207,216,255,0) 68%);animation:fl2 19s ease-in-out infinite alternate}
+.gbg .b3{width:520px;height:520px;left:28%;bottom:-260px;background:radial-gradient(circle,rgba(255,138,31,.22),rgba(255,138,31,0) 68%);animation:fl1 13s ease-in-out infinite alternate-reverse}
+@keyframes fl1{to{transform:translate(70px,50px) scale(1.06)}}
+@keyframes fl2{to{transform:translate(-80px,-40px) scale(1.1)}}
+.gbrand{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
+.biglogo{width:112px;height:112px;filter:drop-shadow(0 14px 26px rgba(39,64,216,.35))}
+.lg-bg{transform-origin:16px 16px;animation:lgpop .7s cubic-bezier(.2,1.4,.4,1) both}
+.lg-sq,.lg-ck{stroke-dasharray:1 1;stroke-dashoffset:1}
+.lg-sq{animation:lgdraw .7s .4s ease forwards}
+.lg-ck{animation:lgdraw .5s .95s ease forwards}
+@keyframes lgpop{from{transform:scale(.3) rotate(-25deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes lgdraw{to{stroke-dashoffset:0}}
+.gword{display:flex;margin-top:18px;font-size:76px;font-weight:800;letter-spacing:-3px;color:var(--pri-d);line-height:1}
+.gword span{display:inline-block;opacity:0;transform:translateY(26px);animation:lgrise .55s cubic-bezier(.2,.9,.3,1) forwards}
+@keyframes lgrise{to{opacity:1;transform:none}}
+.gtag{margin:14px 0 0;font-size:19px;color:var(--mut);font-weight:600;opacity:0;animation:lgrise .6s 1.6s forwards}
+.gside{position:relative;display:flex;align-items:center;justify-content:center;padding:28px 24px}
+.gcard{width:min(420px,100%);background:#fff;border-radius:26px;padding:28px 26px;box-shadow:0 24px 60px rgba(21,26,46,.16),0 2px 6px rgba(21,26,46,.06);opacity:0;transform:translateY(34px);animation:lgrise .75s .7s cubic-bezier(.2,.9,.3,1) forwards}
+.gcard h3{font-size:21px;letter-spacing:-.4px}
+.gcard .gsub{color:var(--mut);margin:4px 0 18px;font-weight:600}
+.gcard .gbar{height:5px;border-radius:5px;background:var(--pri-l);overflow:hidden;margin-top:14px}
+.gcard .gbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--pri),var(--acc));animation:gfill 2.6s 1.2s linear forwards}
+@keyframes gfill{to{width:100%}}
+.gcard .glink{background:none;border:0;color:var(--pri);font-weight:700;cursor:pointer;margin:14px auto 0;display:block;font-size:14px}
+.gcard .gerr{color:var(--bad);font-weight:700;font-size:14px;margin:8px 0 0;min-height:18px}
+.gcard .gnote{background:var(--pri-l);border-radius:12px;padding:10px 12px;font-size:13.5px;margin-top:12px;color:var(--ink)}
+.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.pinin{text-align:center;font-size:24px;letter-spacing:10px;font-weight:800}
+@media (max-width:899px){
+  .gate{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .gbrand{padding:30px 16px 4px}.biglogo{width:72px;height:72px}.gword{font-size:46px;margin-top:10px;letter-spacing:-2px}.gtag{font-size:15px;margin-top:6px}
+  .gside{align-items:flex-start;padding:18px 16px 30px}
+}
+@media (prefers-reduced-motion:reduce){.gate *{animation-duration:.01s!important;animation-delay:0s!important}}
 </style>
 </head>
 <body>
@@ -520,12 +564,39 @@ function render(){
 }
 addEventListener('hashchange',render);
 
+
+/* ---------- pantalla de entrada (bienvenida / PIN) ---------- */
+const BIGLOGO=`<svg class="biglogo" viewBox="0 0 32 32" aria-hidden="true"><rect class="lg-bg" width="32" height="32" rx="9" fill="#2740D8"/><rect class="lg-sq" pathLength="1" x="7" y="7" width="18" height="18" rx="4.5" fill="none" stroke="#fff" stroke-width="2.6"/><path class="lg-ck" pathLength="1" d="M12.5 16.5l2.7 2.7 5-5.6" fill="none" stroke="#FF8A1F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const gateLayout=card=>`<div class="gbg"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div><div class="gbrand">${BIGLOGO}<div class="gword" aria-label="cuadra">${'cuadra'.split('').map((c,i)=>`<span style="animation-delay:${(.85+i*.07).toFixed(2)}s">${c}</span>`).join('')}</div><p class="gtag">Tu negocio al día, sin enredos.</p></div><div class="gside"><div class="gcard">${card}</div></div>`;
+async function hashPin(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cuadra:'+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return 'p'+btoa('cuadra:'+p)}}
+const sessOK=()=>{try{return sessionStorage.getItem('cuadra_ok')==='1'}catch(e){return false}};
+const sessSet=v=>{try{v?sessionStorage.setItem('cuadra_ok','1'):sessionStorage.removeItem('cuadra_ok')}catch(e){}};
+function gate(){
+  return new Promise(resolve=>{
+    let g=$('#gate');if(!g){g=document.createElement('div');g.id='gate';document.body.appendChild(g)}
+    g.className='gate';g.innerHTML=gateLayout(S.meta.pin?`
+      <h3>Bienvenido de nuevo</h3><p class="gsub">${esc(S.meta.business)}</p>
+      <form id="gform"><input class="in pinin" id="gpin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="• • • •" aria-label="PIN"><div class="gerr" id="gerr"></div><button class="btn pri big">Ingresar</button></form>
+      <button class="glink" id="gforgot" type="button">¿Olvidaste tu PIN?</button><div class="gnote hide" id="gnote">Si lo olvidaste: borra los datos del sitio en el navegador y restaura tu copia de seguridad desde Ajustes.</div>`
+    :`<h3>Hola, ${esc(firstName(S.meta.owner))} 👋</h3><p class="gsub">${esc(S.meta.business)}</p>
+      <button class="btn pri big" id="genter">Entrar a mi negocio</button><div class="gbar"><i></i></div>`);
+    const done=()=>{sessSet(true);g.classList.add('out');setTimeout(()=>{g.remove()},520);resolve()};
+    if(S.meta.pin){
+      const inp=$('#gpin');setTimeout(()=>inp.focus(),900);
+      $('#gforgot').onclick=()=>$('#gnote').classList.toggle('hide');
+      $('#gform').onsubmit=async e=>{e.preventDefault();const h=await hashPin(inp.value.trim());
+        if(h===S.meta.pin)done();else{$('#gerr').textContent='PIN incorrecto. Intenta de nuevo.';inp.value='';inp.classList.remove('shake');void inp.offsetWidth;inp.classList.add('shake');inp.focus()}};
+    }else{
+      const t=setTimeout(done,3900);$('#genter').onclick=()=>{clearTimeout(t);done()};setTimeout(()=>{const b=$('#genter');b&&b.focus()},900);
+    }
+  });
+}
+
 /* ---------- onboarding ---------- */
 function onboarding(){
-  $('#shell').innerHTML=`<div class="onb">
-    <div class="logo" style="font-size:30px;justify-content:center;margin:14px 0">${LOGO}<span>cuadra</span></div>
-    <div class="hero"><h2>Tu negocio al día, sin enredos.</h2><p style="margin:8px 0 0;opacity:.9">Ventas, inventario, caja y clientes en un solo lugar, para cualquier tipo de negocio. Funciona sin internet y tus datos son tuyos.</p></div>
-    <form class="panel" data-form="onb">
+  $('#shell').innerHTML=`<div class="gate inline">`+gateLayout(`
+    <h3>Crea tu negocio</h3><p class="gsub">Listo en menos de un minuto. Funciona sin internet.</p>
+    <form data-form="onb">
       <div class="fg"><label class="f">Nombre de tu negocio</label><input class="in" name="business" required placeholder="Ej: Tienda El Vergel" autofocus></div>
       <div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" required placeholder="Ej: Gabriel"></div>
       ${typeSelectHTML('')}
@@ -534,7 +605,7 @@ function onboarding(){
         <input type="hidden" name="mode" value="vacio">
         <p class="mut sm" id="onbhelp" style="margin:8px 2px 0">Empiezas con tu inventario en blanco.</p></div>
       <button class="btn pri big">Entrar a Cuadra</button>
-    </form></div>`;
+    </form>`)+`</div>`;
 }
 
 /* ---------- vistas ---------- */
@@ -1045,6 +1116,10 @@ VIEWS.mas={
    <div class="fg"><label class="f">Margen de ganancia por defecto (%)</label><input class="in" name="defMargin" inputmode="decimal" value="${S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''}" placeholder="Ej: 20"><p class="mut xs" style="margin:6px 2px 0">Se pone solo al crear productos nuevos. Puedes cambiarlo en cada producto.</p></div>
    <div class="fg"><label class="f">Redondear el precio calculado</label><select class="in" name="round"><option value="0" ${!S.meta.round?'selected':''}>Sin redondear (exacto)</option><option value="50" ${S.meta.round==50?'selected':''}>Hacia arriba, a múltiplos de $50</option><option value="100" ${S.meta.round==100?'selected':''}>Hacia arriba, a múltiplos de $100</option></select></div>
    <button class="btn soft">Guardar</button></form></div>
+  <div class="panel"><h3>Seguridad</h3><p class="mut sm" style="margin:0 0 10px">${S.meta.pin?'Tu PIN está activo: se pide al abrir Cuadra.':'Protege tu negocio con un PIN de 4 a 6 números. Se pide al abrir Cuadra.'}</p>
+   <form data-form="pin"><div class="fg"><label class="f">${S.meta.pin?'Nuevo PIN':'Crear PIN'}</label><input class="in" name="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="4 a 6 números"></div>
+   <div class="fg"><label class="f">Repite el PIN</label><input class="in" name="pin2" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>
+   <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn soft">${S.meta.pin?'Cambiar PIN':'Activar PIN'}</button>${S.meta.pin?`<button type="button" class="btn" data-act="lock">Bloquear ahora</button><button type="button" class="btn" data-act="pin-off">Quitar PIN</button>`:''}</div></form></div>
   <div class="panel"><h3>Mi negocio</h3><form data-form="biz"><div class="fg"><label class="f">Nombre del negocio</label><input class="in" name="business" value="${esc(S.meta.business)}" required></div><div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" value="${esc(S.meta.owner)}" required></div>${typeSelectHTML(S.meta.type)}<p class="mut xs" style="margin:-6px 2px 12px">El tipo de negocio define las categorías que ves al crear productos.</p><button class="btn soft">Guardar cambios</button></form></div>
   <div class="panel"><h3>Modo práctica</h3><p class="mut sm" style="margin:0 0 10px">Carga productos, clientes y ventas de ejemplo para aprender a usar Cuadra sin riesgo. Reemplaza lo que tengas.</p><button class="btn" data-act="load-demo">Cargar datos de ejemplo</button></div>
   <div class="panel"><h3>Instalar en tu equipo</h3><p class="mut sm" style="margin:0">En el celular: menú del navegador → <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>. Después funciona sin internet.</p></div>
@@ -1118,6 +1193,8 @@ document.addEventListener('click',async e=>{
    'gen-code'(){const i=$('#pbc');S.counters.code++;i.value='CUA'+String(S.counters.code).padStart(6,'0');save()},
    'add-cart'(){addCart(d.id)},
    'clear-cart'(){cart=[];renderCart()},
+   lock(){sessSet(false);gate()},
+   'pin-off'(){S.meta.pin='';save();toast('PIN quitado','ok');render()},
    'vcat'(){vcat=d.c||'';renderRes()},
    qty(){const l=cart[+d.i];l.qty=Math.max(0,Math.round((l.qty+(+d.d))*1000)/1000);if(l.qty<=0)cart.splice(+d.i,1);renderCart()},
    cobrar(){cobrar()},
@@ -1171,7 +1248,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
   const f=e.target.closest('form[data-form]');if(!f)return;e.preventDefault();
   const k=f.dataset.form;
-  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);
+  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);sessSet(true);
     if(fd.get('mode')==='demo'){loadDemo()}else{save()}
     location.hash='#/home';shell();render();return}
   if(k==='product')saveProduct(f);
@@ -1181,6 +1258,10 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
+  if(k==='pin'){const fd=new FormData(f),a=(fd.get('pin')||'').trim(),b=(fd.get('pin2')||'').trim();
+    if(!/^\d{4,6}$/.test(a))return toast('El PIN debe tener de 4 a 6 números','warn');
+    if(a!==b)return toast('Los dos PIN no coinciden','warn');
+    hashPin(a).then(h=>{S.meta.pin=h;save();sessSet(true);toast('PIN activado','ok');render()});return}
   if(k==='pricing'){const fd=new FormData(f);const m=dec(fd.get('defMargin'));S.meta.defMargin=(m>0&&m<100)?m:0;S.meta.round=+fd.get('round')||0;save();toast('Guardado','ok');render()}
   if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);save();toast('Guardado','ok');render()}
 });
@@ -1215,6 +1296,7 @@ document.addEventListener('keydown',e=>{
   await loadState();
   if(S.meta.business)shell();
   render();
+  if(S.meta.business&&!sessOK())gate();
   if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>

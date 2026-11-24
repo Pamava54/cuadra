@@ -274,6 +274,71 @@ async function persist(){
 addEventListener('pagehide',persist);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)persist()});
 
+/* ---------- tipos de negocio y sus categorías ---------- */
+const MINI=['Abarrotes y granos','Aceites y condimentos','Café, té y panela','Enlatados y conservas','Lácteos y huevos','Carnes y embutidos','Frutas y verduras','Pan y galletas','Bebidas','Licores y cervezas','Snacks y dulces','Congelados','Aseo del hogar','Aseo personal','Bebé','Mascotas','Papelería y varios'];
+const CATS={
+ 'Tienda de barrio':['Abarrotes y granos','Aceites y condimentos','Lácteos y huevos','Pan y galletas','Carnes y embutidos','Frutas y verduras','Bebidas','Licores y cervezas','Snacks y dulces','Aseo del hogar','Aseo personal','Recargas y servicios','Varios'],
+ 'Supermercado o minimercado':MINI,
+ 'Panadería y pastelería':['Pan','Pasteles y tortas','Galletas y ponqués','Hojaldres y empanadas','Bebidas calientes','Bebidas frías','Lácteos','Postres','Insumos'],
+ 'Cafetería':['Café y bebidas calientes','Bebidas frías y jugos','Sándwiches y comidas','Postres y panadería','Snacks','Insumos'],
+ 'Restaurante':['Entradas','Platos fuertes','Sopas','Acompañamientos','Bebidas','Postres','Adicionales','Insumos'],
+ 'Comidas rápidas':['Hamburguesas','Perros calientes','Pizzas','Pollo y alitas','Salchipapas','Acompañamientos','Bebidas','Combos','Adicionales'],
+ 'Carnicería':['Res','Cerdo','Pollo','Pescados y mariscos','Embutidos','Menudencias','Otros'],
+ 'Fruver':['Frutas','Verduras','Hortalizas','Tubérculos','Hierbas y aromáticas','Huevos','Otros'],
+ 'Heladería':['Helados','Paletas','Malteadas','Postres','Toppings','Bebidas','Insumos'],
+ 'Salsamentaria':['Quesos','Jamones y carnes frías','Embutidos','Lácteos','Encurtidos y salsas','Huevos','Otros'],
+ 'Licorera o estanco':['Cervezas','Aguardiente y ron','Whisky y brandy','Vinos','Gaseosas y mezcladores','Snacks','Hielo','Cigarrillos'],
+ 'Mayorista o distribuidor':['Abarrotes','Aseo','Bebidas','Licores','Lácteos','Snacks y dulces','Cuidado personal','Otros'],
+ 'Peluquería':['Cortes','Color y tintes','Tratamientos capilares','Peinados','Productos de venta','Insumos'],
+ 'Barbería':['Cortes','Barba','Cejas','Tratamientos','Productos de venta','Insumos'],
+ 'Salón de uñas':['Manicure','Pedicure','Uñas acrílicas y gel','Esmaltes y productos','Insumos'],
+ 'Spa y estética':['Masajes','Faciales','Corporales','Depilación','Paquetes','Productos de venta','Insumos'],
+ 'Centro de masajes':['Masajes relajantes','Masajes terapéuticos','Paquetes','Productos de venta'],
+ 'Tienda de belleza':['Maquillaje','Cuidado de la piel','Cuidado del cabello','Uñas','Accesorios','Perfumes','Herramientas'],
+ 'Perfumería y aseo':['Perfumes','Aseo personal','Aseo del hogar','Cuidado de la piel','Cuidado del cabello','Desodorantes','Higiene femenina','Otros'],
+ 'Droguería':['Medicamentos de venta libre','Vitaminas y suplementos','Cuidado personal','Primeros auxilios','Bebé y maternidad','Higiene','Dispositivos médicos','Otros'],
+ 'Tienda naturista':['Suplementos','Plantas medicinales','Aceites y esencias','Productos de dieta','Cuidado personal','Alimentos saludables','Otros'],
+ 'Óptica':['Monturas','Lentes','Lentes de contacto','Gafas de sol','Líquidos y accesorios','Servicios'],
+ 'Tienda de mascotas':['Alimento para perros','Alimento para gatos','Aves y roedores','Peces y acuarios','Accesorios','Juguetes','Higiene y aseo','Camas y transportadoras'],
+ 'Veterinaria':['Consultas','Vacunas','Desparasitación','Cirugías y procedimientos','Baño y peluquería','Medicamentos','Alimentos','Accesorios'],
+ 'Ropa, calzado y accesorios':['Ropa de dama','Ropa de caballero','Ropa de niños','Ropa interior','Calzado','Bolsos y morrales','Accesorios','Ropa deportiva'],
+ 'Bisutería':['Collares','Aretes','Pulseras','Anillos','Relojes','Accesorios para el cabello','Insumos'],
+ 'Tienda de hogar y decoración':['Cocina','Baño','Dormitorio','Decoración','Organización','Iluminación','Textiles','Otros'],
+ 'Ferretería':['Herramientas manuales','Herramientas eléctricas','Tornillería y fijaciones','Plomería','Electricidad','Pinturas y acabados','Construcción','Seguridad y candados'],
+ 'Cacharrería':['Cocina y menaje','Plásticos','Aseo','Artículos de hogar','Juguetes','Papelería','Varios'],
+ 'Juguetería':['Muñecas','Carros y vehículos','Juegos de mesa','Didácticos','Peluches','Aire libre','Disfraces y fiestas'],
+ 'Floristería':['Ramos','Arreglos','Plantas','Flores sueltas','Globos y peluches','Detalles y tarjetas','Insumos'],
+ 'Regalos y detalles':['Peluches','Tarjetas','Decoración de fiestas','Detalles personalizados','Cajas de regalo','Globos','Velas'],
+ 'Tienda deportiva':['Ropa deportiva','Calzado deportivo','Balones','Fitness y gimnasio','Ciclismo','Natación','Accesorios','Suplementos'],
+ 'Pañalera':['Pañales','Toallitas húmedas','Ropa de bebé','Alimentación del bebé','Aseo del bebé','Juguetes','Accesorios'],
+ 'Papelería y librería':['Cuadernos','Escritura','Arte y manualidades','Oficina','Libros','Útiles escolares','Impresión y copias','Regalos'],
+ 'Fotocopias e impresiones':['Fotocopias','Impresiones','Escaneo','Plastificado y empaste','Papelería','Servicios varios'],
+ 'Tecnología y electrónicos':['Celulares','Computadores','Accesorios','Audio','Cámaras','Televisores','Cables y cargadores','Consolas y juegos'],
+ 'Reparación de celulares y accesorios':['Reparaciones','Pantallas y repuestos','Fundas y protectores','Cargadores y cables','Audífonos','Accesorios'],
+ 'Cibercafé':['Alquiler por hora','Impresiones','Recargas','Servicios varios','Snacks y bebidas'],
+ 'Recargas y servicios':['Recargas de celular','Pines y servicios','Pagos y recaudos','Giros','Papelería','Varios'],
+ 'Lavandería':['Lavado por kilo','Lavado en seco','Planchado','Prendas especiales','Edredones y cobijas','Insumos'],
+ 'Taller de motos y repuestos':['Mantenimiento','Reparaciones','Repuestos','Lubricantes y aceites','Llantas','Accesorios','Cascos y protección'],
+ 'Taller automotriz y repuestos':['Mantenimiento','Frenos','Suspensión','Motor','Sistema eléctrico','Llantas y alineación','Lubricantes y filtros','Repuestos'],
+ 'Lavadero de carros':['Lavado básico','Lavado completo','Polichado','Tapicería','Lavado de motos','Productos de venta'],
+ 'Misceláneas':['Papelería','Aseo','Juguetes','Accesorios','Dulces y snacks','Bisutería','Varios']
+};
+const TYPE_GROUPS={
+ 'Comida y bebida':['Tienda de barrio','Supermercado o minimercado','Panadería y pastelería','Cafetería','Restaurante','Comidas rápidas','Carnicería','Fruver','Heladería','Salsamentaria','Licorera o estanco','Mayorista o distribuidor'],
+ 'Belleza y bienestar':['Peluquería','Barbería','Salón de uñas','Spa y estética','Centro de masajes','Tienda de belleza','Perfumería y aseo'],
+ 'Salud y mascotas':['Droguería','Tienda naturista','Óptica','Tienda de mascotas','Veterinaria'],
+ 'Moda, hogar y regalos':['Ropa, calzado y accesorios','Bisutería','Tienda de hogar y decoración','Ferretería','Cacharrería','Juguetería','Floristería','Regalos y detalles','Tienda deportiva','Pañalera'],
+ 'Tecnología y servicios':['Papelería y librería','Fotocopias e impresiones','Tecnología y electrónicos','Reparación de celulares y accesorios','Cibercafé','Recargas y servicios','Lavandería','Taller de motos y repuestos','Taller automotriz y repuestos','Lavadero de carros','Misceláneas']
+};
+const ALL_TYPES=Object.values(TYPE_GROUPS).flat();
+const GENERIC_CATS=['General','Servicios','Insumos','Accesorios'];
+const catsFor=()=>CATS[S.meta.type]||GENERIC_CATS;
+function typeSelectHTML(cur){
+  const other=!!cur&&!ALL_TYPES.includes(cur);
+  return `<div class="fg"><label class="f">Tipo de negocio</label><select class="in" name="type" id="btype">${Object.entries(TYPE_GROUPS).map(([g,items])=>`<optgroup label="${g}">${items.map(i=>`<option ${i===cur?'selected':''}>${i}</option>`).join('')}</optgroup>`).join('')}<option ${other?'selected':''}>Otro</option></select><input class="in ${other?'':'hide'}" name="typeOther" id="btypeo" placeholder="¿Cuál es tu negocio?" value="${esc(other?cur:'')}" style="margin-top:8px"></div>`;
+}
+const readType=fd=>(fd.get('type')==='Otro'&&(fd.get('typeOther')||'').trim())?fd.get('typeOther').trim():fd.get('type');
+
 /* ---------- derivados ---------- */
 const openCaja=()=>S.cajas.find(c=>!c.closedAt);
 const prod=id=>S.products.find(p=>p.id===id);
@@ -431,7 +496,7 @@ function onboarding(){
     <form class="panel" data-form="onb">
       <div class="fg"><label class="f">Nombre de tu negocio</label><input class="in" name="business" required placeholder="Ej: Tienda El Vergel" autofocus></div>
       <div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" required placeholder="Ej: Gabriel"></div>
-      <div class="fg"><label class="f">Tipo de negocio</label><select class="in" name="type" id="btype"><optgroup label="Comida y bebida"><option>Tienda de barrio</option><option>Supermercado o minimercado</option><option>Panadería y pastelería</option><option>Cafetería</option><option>Restaurante</option><option>Comidas rápidas</option><option>Carnicería</option><option>Fruver</option><option>Heladería</option><option>Salsamentaria</option><option>Licorera o estanco</option><option>Mayorista o distribuidor</option></optgroup><optgroup label="Belleza y bienestar"><option>Peluquería</option><option>Barbería</option><option>Salón de uñas</option><option>Spa y estética</option><option>Centro de masajes</option><option>Tienda de belleza</option><option>Perfumería y aseo</option></optgroup><optgroup label="Salud y mascotas"><option>Droguería</option><option>Tienda naturista</option><option>Óptica</option><option>Tienda de mascotas</option><option>Veterinaria</option></optgroup><optgroup label="Moda, hogar y regalos"><option>Ropa, calzado y accesorios</option><option>Bisutería</option><option>Tienda de hogar y decoración</option><option>Ferretería</option><option>Cacharrería</option><option>Juguetería</option><option>Floristería</option><option>Regalos y detalles</option><option>Tienda deportiva</option><option>Pañalera</option></optgroup><optgroup label="Tecnología y servicios"><option>Papelería y librería</option><option>Fotocopias e impresiones</option><option>Tecnología y electrónicos</option><option>Reparación de celulares y accesorios</option><option>Cibercafé</option><option>Recargas y servicios</option><option>Lavandería</option><option>Taller de motos y repuestos</option><option>Taller automotriz y repuestos</option><option>Lavadero de carros</option><option>Misceláneas</option></optgroup><option>Otro</option></select><input class="in hide" name="typeOther" id="btypeo" placeholder="¿Cuál es tu negocio?" style="margin-top:8px"></div>
+      ${typeSelectHTML('')}
       <div class="fg"><label class="f">¿Cómo quieres empezar?</label>
         <div class="seg" id="onbseg"><button type="button" class="on" data-act="onb-mode" data-m="vacio">Empezar vacío</button><button type="button" data-act="onb-mode" data-m="demo">Modo práctica</button></div>
         <input type="hidden" name="mode" value="vacio">
@@ -610,7 +675,7 @@ function plist(){
   if(!r.length){el.innerHTML=`<div class="empty"><b>Sin resultados</b>Prueba con otro nombre o filtro.</div>`;return}
   el.innerHTML=r.slice(0,200).map(p=>{
     const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Bajo · '+qfmt(p.stock)]:['ok',qfmt(p.stock)+' und'];
-    return `<button class="item" data-act="edit-product" data-id="${p.id}"><div class="avatar">${esc(p.name.slice(0,1).toUpperCase())}</div><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.barcode||'Sin código')}${p.loc?' · '+esc(p.loc):''}</div></div><div class="right"><div class="b">${money(p.price)}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+    return `<button class="item" data-act="edit-product" data-id="${p.id}"><div class="avatar">${esc(p.name.slice(0,1).toUpperCase())}</div><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.barcode||'Sin código')}${p.cat?' · '+esc(p.cat):''}</div></div><div class="right"><div class="b">${money(p.price)}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
 }
 function productForm(id,pre={}){
   const p=id?prod(id):null;const d=p||{name:pre.name||'',barcode:pre.barcode||'',cat:'',cost:0,price:0,stock:0,min:3,loc:'Piso de venta'};
@@ -625,7 +690,8 @@ function productForm(id,pre={}){
     <div class="mut sm" id="margin" style="margin:0 0 12px;line-height:1.5"></div>
     <div class="g2"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
     <div class="fg"><label class="f">Avisar cuando queden</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div></div>
-    <div class="fg"><label class="f">Categoría (opcional)</label><input class="in" name="cat" value="${esc(d.cat||'')}" placeholder="Ej: Aseo, Lácteos, Papelería"></div>
+    ${(()=>{const L=catsFor(),cur=d.cat||'',custom=!!cur&&!L.includes(cur);
+     return `<div class="fg"><label class="f">Categoría <span class="xs">(según tu negocio: ${esc(S.meta.type||'General')})</span></label><select class="in" name="catsel" id="catsel"><option value="">Sin categoría</option>${L.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('')}<option value="__otra" ${custom?'selected':''}>Otra (escribir)…</option></select><input class="in ${custom?'':'hide'}" name="cat" id="cato" value="${esc(custom?cur:'')}" placeholder="Escribe la categoría" style="margin-top:8px"></div>`})()}
     <button class="btn pri big">Guardar producto</button>
     ${p?`<button type="button" class="btn danger big mt" data-act="del-product" data-id="${p.id}">${ic('trash','sm')} Eliminar</button>`:''}
    </form>`);
@@ -647,7 +713,7 @@ function marginHint(){
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
-  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:fd.get('cat').trim(),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min'))};
+  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min'))};
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
   if(o.barcode){const dup=S.products.find(p=>p.barcode===o.barcode&&p.id!==id);if(dup){toast(`Ese código ya es de “${dup.name}”`,'bad');return}}
@@ -939,7 +1005,7 @@ VIEWS.mas={
    <div class="fg"><label class="f">Margen de ganancia por defecto (%)</label><input class="in" name="defMargin" inputmode="decimal" value="${S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''}" placeholder="Ej: 20"><p class="mut xs" style="margin:6px 2px 0">Se pone solo al crear productos nuevos. Puedes cambiarlo en cada producto.</p></div>
    <div class="fg"><label class="f">Redondear el precio calculado</label><select class="in" name="round"><option value="0" ${!S.meta.round?'selected':''}>Sin redondear (exacto)</option><option value="50" ${S.meta.round==50?'selected':''}>Hacia arriba, a múltiplos de $50</option><option value="100" ${S.meta.round==100?'selected':''}>Hacia arriba, a múltiplos de $100</option></select></div>
    <button class="btn soft">Guardar</button></form></div>
-  <div class="panel"><h3>Mi negocio</h3><form data-form="biz"><div class="fg"><label class="f">Nombre del negocio</label><input class="in" name="business" value="${esc(S.meta.business)}" required></div><div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" value="${esc(S.meta.owner)}" required></div><button class="btn soft">Guardar cambios</button></form></div>
+  <div class="panel"><h3>Mi negocio</h3><form data-form="biz"><div class="fg"><label class="f">Nombre del negocio</label><input class="in" name="business" value="${esc(S.meta.business)}" required></div><div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" value="${esc(S.meta.owner)}" required></div>${typeSelectHTML(S.meta.type)}<p class="mut xs" style="margin:-6px 2px 12px">El tipo de negocio define las categorías que ves al crear productos.</p><button class="btn soft">Guardar cambios</button></form></div>
   <div class="panel"><h3>Modo práctica</h3><p class="mut sm" style="margin:0 0 10px">Carga productos, clientes y ventas de ejemplo para aprender a usar Cuadra sin riesgo. Reemplaza lo que tengas.</p><button class="btn" data-act="load-demo">Cargar datos de ejemplo</button></div>
   <div class="panel"><h3>Instalar en tu equipo</h3><p class="mut sm" style="margin:0">En el celular: menú del navegador → <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>. Después funciona sin internet.</p></div>
   <div class="panel"><h3>Zona delicada</h3><button class="btn danger" data-act="wipe">${ic('trash','sm')} Borrar todos mis datos</button></div>
@@ -966,7 +1032,8 @@ function loadDemo(){
   S=blank();Object.assign(S.meta,keep,{practice:true});
   let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
   const P=[['Arroz 500 g','Granos',1900,2500,40],['Aceite 1 L','Despensa',8200,9800,18],['Azúcar 1 kg','Granos',3600,4500,25],['Leche entera 1 L','Lácteos',3900,4600,30],['Huevo (unidad)','Lácteos',450,600,120],['Pan tajado','Panadería',3800,4800,12],['Café 250 g','Despensa',7600,9500,14],['Panela','Despensa',2800,3500,20],['Sal 500 g','Despensa',1100,1500,22],['Fríjol 500 g','Granos',3900,5000,16],['Gaseosa 1,5 L','Bebidas',4200,5500,24],['Agua 600 ml','Bebidas',1100,1800,36],['Galletas de sal','Snacks',1300,2000,28],['Papas fritas','Snacks',1900,2800,26],['Jabón de barra','Aseo',1700,2400,18],['Detergente 500 g','Aseo',4300,5600,12],['Papel higiénico x4','Aseo',5200,6800,10],['Atún en lata','Despensa',4300,5600,15],['Pasta 250 g','Granos',1700,2400,30],['Chocolate de mesa','Despensa',4600,5800,14],['Mantequilla','Lácteos',3300,4200,10],['Salchichas x5','Carnes frías',4800,6200,9],['Cuaderno','Papelería',2800,4000,12],['Lapicero','Papelería',600,1000,40],['Bolsa de hielo','Bebidas',900,1500,3]];
-  P.forEach((p,i)=>S.products.push({id:uid()+i,name:p[0],cat:p[1],cost:p[2],price:p[3],stock:p[4],min:p[4]>=30?8:5,loc:i%4===0?'Bodega':'Piso de venta',barcode:'77012345'+String(10000+i*37),sold:0}));
+  const DC={'Granos':'Abarrotes y granos','Despensa':'Aceites y condimentos','Lácteos':'Lácteos y huevos','Panadería':'Pan y galletas','Bebidas':'Bebidas','Snacks':'Snacks y dulces','Aseo':'Aseo del hogar','Carnes frías':'Carnes y embutidos','Papelería':'Papelería y varios'};
+  P.forEach((p,i)=>S.products.push({id:uid()+i,name:p[0],cat:DC[p[1]]||p[1],cost:p[2],price:p[3],stock:p[4],min:p[4]>=30?8:5,loc:i%4===0?'Bodega':'Piso de venta',barcode:'77012345'+String(10000+i*37),sold:0}));
   S.products[24].stock=0;S.products[16].stock=3;S.products[21].stock=4;
   ['Doña Marta','Don Pedro','Luz Ángela','Carlos Ruiz','Yenny Gómez'].forEach((n,i)=>S.customers.push({id:'c'+i,name:n,phone:'30012345'+(10+i),notes:''}));
   S.suppliers.push({id:'s0',name:'Distribuidora El Surtido',phone:'3101234567'},{id:'s1',name:'Lácteos del Tolima',phone:'3207654321'});
@@ -1063,7 +1130,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
   const f=e.target.closest('form[data-form]');if(!f)return;e.preventDefault();
   const k=f.dataset.form;
-  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=(fd.get('type')==='Otro'&&(fd.get('typeOther')||'').trim())?fd.get('typeOther').trim():fd.get('type');
+  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);
     if(fd.get('mode')==='demo'){loadDemo()}else{save()}
     location.hash='#/home';shell();render();return}
   if(k==='product')saveProduct(f);
@@ -1074,7 +1141,7 @@ document.addEventListener('submit',e=>{
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
   if(k==='pricing'){const fd=new FormData(f);const m=dec(fd.get('defMargin'));S.meta.defMargin=(m>0&&m<100)?m:0;S.meta.round=+fd.get('round')||0;save();toast('Guardado','ok');render()}
-  if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();save();toast('Guardado','ok');render()}
+  if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);save();toast('Guardado','ok');render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -1092,6 +1159,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.qty!==undefined){const i=+t.dataset.qty,q=dec(t.value);if(q<=0)cart.splice(i,1);else cart[i].qty=q;renderCart()}
   if(t.id==='fcust')pay.cust=t.value;
+  if(t.id==='catsel'){const o=$('#cato');o.classList.toggle('hide',t.value!=='__otra');if(t.value==='__otra')o.focus()}
   if(t.id==='btype'){const o=$('#btypeo');o.classList.toggle('hide',t.value!=='Otro');if(t.value==='Otro')o.focus()}
   if(t.id==='rfile'&&t.files[0]){restoreFile(t.files[0]);t.value=''}
 });

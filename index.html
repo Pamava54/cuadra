@@ -85,9 +85,15 @@ nav.nav .wide-only{display:none}
 .btn.sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:11px}
 .btn[disabled]{opacity:.5;pointer-events:none}
 label.f{display:block;font-size:13px;font-weight:700;color:var(--mut);margin-bottom:4px}
-.in{width:100%;min-height:46px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:#fff;outline:none}
+.in{width:100%;min-height:46px;padding:0 14px;border:1.5px solid #D3DAF2;border-radius:12px;background:#EFF3FF;outline:none;transition:background .15s,border-color .15s}
 textarea.in{padding:10px 14px;min-height:70px}
-.in:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.in::placeholder{color:#8B93B3}
+.in:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l);background:#fff}
+main>.searchbar .in,#vsearch .in{background:#fff}
+form[data-form=product] input[name=margin]{background:#FFF4E5;border-color:#F3D3A3}
+form[data-form=product] input[name=price]{background:#E8F7EE;border-color:#B9E2C8}
+form[data-form=product] input[name=margin]:focus,form[data-form=product] input[name=price]:focus{background:#fff}
+form[data-form=product] label.f{color:#5A6385}
 .fg{margin-bottom:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}

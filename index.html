@@ -425,8 +425,7 @@ function onboarding(){
     <form class="panel" data-form="onb">
       <div class="fg"><label class="f">Nombre de tu negocio</label><input class="in" name="business" required placeholder="Ej: Tienda El Vergel" autofocus></div>
       <div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" required placeholder="Ej: Gabriel"></div>
-      <div class="fg"><label class="f">Tipo de negocio</label><select class="in" name="type">
-        <option>Tienda de barrio</option><option>Papelería</option><option>Panadería o cafetería</option><option>Droguería</option><option>Misceláneas</option><option>Peluquería</option><option>Otro</option></select></div>
+      <div class="fg"><label class="f">Tipo de negocio</label><select class="in" name="type" id="btype"><optgroup label="Comida y bebida"><option>Tienda de barrio</option><option>Supermercado o minimercado</option><option>Panadería y pastelería</option><option>Cafetería</option><option>Restaurante</option><option>Comidas rápidas</option><option>Carnicería</option><option>Fruver</option><option>Heladería</option><option>Salsamentaria</option><option>Licorera o estanco</option><option>Mayorista o distribuidor</option></optgroup><optgroup label="Belleza y bienestar"><option>Peluquería</option><option>Barbería</option><option>Salón de uñas</option><option>Spa y estética</option><option>Centro de masajes</option><option>Tienda de belleza</option><option>Perfumería y aseo</option></optgroup><optgroup label="Salud y mascotas"><option>Droguería</option><option>Tienda naturista</option><option>Óptica</option><option>Tienda de mascotas</option><option>Veterinaria</option></optgroup><optgroup label="Moda, hogar y regalos"><option>Ropa, calzado y accesorios</option><option>Bisutería</option><option>Tienda de hogar y decoración</option><option>Ferretería</option><option>Cacharrería</option><option>Juguetería</option><option>Floristería</option><option>Regalos y detalles</option><option>Tienda deportiva</option><option>Pañalera</option></optgroup><optgroup label="Tecnología y servicios"><option>Papelería y librería</option><option>Fotocopias e impresiones</option><option>Tecnología y electrónicos</option><option>Reparación de celulares y accesorios</option><option>Cibercafé</option><option>Recargas y servicios</option><option>Lavandería</option><option>Taller de motos y repuestos</option><option>Taller automotriz y repuestos</option><option>Lavadero de carros</option><option>Misceláneas</option></optgroup><option>Otro</option></select><input class="in hide" name="typeOther" id="btypeo" placeholder="¿Cuál es tu negocio?" style="margin-top:8px"></div>
       <div class="fg"><label class="f">¿Cómo quieres empezar?</label>
         <div class="seg" id="onbseg"><button type="button" class="on" data-act="onb-mode" data-m="vacio">Empezar vacío</button><button type="button" data-act="onb-mode" data-m="demo">Modo práctica</button></div>
         <input type="hidden" name="mode" value="vacio">
@@ -1043,7 +1042,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
   const f=e.target.closest('form[data-form]');if(!f)return;e.preventDefault();
   const k=f.dataset.form;
-  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=fd.get('type');
+  if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=(fd.get('type')==='Otro'&&(fd.get('typeOther')||'').trim())?fd.get('typeOther').trim():fd.get('type');
     if(fd.get('mode')==='demo'){loadDemo()}else{save()}
     location.hash='#/home';shell();render();return}
   if(k==='product')saveProduct(f);
@@ -1071,6 +1070,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.qty!==undefined){const i=+t.dataset.qty,q=dec(t.value);if(q<=0)cart.splice(i,1);else cart[i].qty=q;renderCart()}
   if(t.id==='fcust')pay.cust=t.value;
+  if(t.id==='btype'){const o=$('#btypeo');o.classList.toggle('hide',t.value!=='Otro');if(t.value==='Otro')o.focus()}
   if(t.id==='rfile'&&t.files[0]){restoreFile(t.files[0]);t.value=''}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});

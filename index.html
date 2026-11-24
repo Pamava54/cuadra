@@ -613,8 +613,10 @@ function productForm(id,pre={}){
     <div class="fg"><label class="f">Nombre</label><input class="in" name="name" required value="${esc(d.name)}" placeholder="Ej: Arroz 500 g" ${p?'':'autofocus'}></div>
     <div class="fg"><label class="f">Código de barras</label><div class="searchbar"><input class="in grow" name="barcode" id="pbc" value="${esc(d.barcode)}" placeholder="Escanea o escribe (opcional)" inputmode="numeric"><button type="button" class="btn soft icon" data-act="scan-field" aria-label="Escanear">${ic('scan')}</button><button type="button" class="btn sm" style="min-height:46px" data-act="gen-code">Crear</button></div></div>
     <div class="g2"><div class="fg"><label class="f">Precio de compra</label><input class="in money" name="cost" inputmode="numeric" value="${d.cost?fmtInt(d.cost):''}" placeholder="0"></div>
-    <div class="fg"><label class="f">Precio de venta</label><input class="in money" name="price" inputmode="numeric" required value="${d.price?fmtInt(d.price):''}" placeholder="0"></div></div>
-    <div class="mut sm" id="margin" style="margin:-4px 0 12px"></div>
+    <div class="fg"><label class="f">Margen de ganancia (%)</label><input class="in" name="margin" inputmode="decimal" value="${(d.cost&&d.price>d.cost)?String(Math.round((d.price-d.cost)/d.price*1000)/10).replace('.',','):(p?'':(S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''))}" placeholder="Ej: 20"></div></div>
+    <div class="fg"><label class="f">Precio de venta</label><input class="in money" name="price" inputmode="numeric" required value="${d.price?fmtInt(d.price):''}" placeholder="0"></div>
+    <div class="mut xs" style="margin:-6px 0 8px">Escribe el margen y Cuadra calcula el precio: <b>costo ÷ (1 − margen)</b>. Ejemplo: 20% → costo ÷ 0,80. O escribe el precio y verás el margen.</div>
+    <div class="mut sm" id="margin" style="margin:0 0 12px;line-height:1.5"></div>
     <div class="g3"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
     <div class="fg"><label class="f">Avisar desde</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div>
     <div class="fg"><label class="f">Ubicación</label><select class="in" name="loc">${['Piso de venta','Bodega','Piso y bodega'].map(x=>`<option ${x===d.loc?'selected':''}>${x}</option>`).join('')}</select></div></div>
@@ -624,9 +626,19 @@ function productForm(id,pre={}){
    </form>`);
   marginHint();
 }
+const roundUp=n=>{n=Math.round(n*1e6)/1e6;const r=+S.meta.round||0;return r?Math.ceil(n/r)*r:Math.round(n)};
+function priceSync(f,src){
+  const c=digits(f.cost.value);
+  const fromPrice=()=>{const v=digits(f.price.value);f.margin.value=(v&&c)?String(Math.round((v-c)/v*1000)/10).replace('.',','):''};
+  const fromMargin=()=>{const m=dec(f.margin.value);if(c&&m>0&&m<100)f.price.value=fmtInt(roundUp(c/(1-m/100)))};
+  if(src==='price')fromPrice();
+  else if(src==='margin')fromMargin();
+  else{ if(dec(f.margin.value)>0)fromMargin(); else fromPrice(); }
+  marginHint();
+}
 function marginHint(){
   const f=$('form[data-form="product"]');if(!f)return;const c=digits(f.cost.value),v=digits(f.price.value),m=$('#margin');
-  if(v&&c){const g=v-c;m.innerHTML=g>=0?`Ganas <b class="ok">${money(g)}</b> por unidad (${Math.round(g/v*100)}% del precio).`:`<b class="bad">Estás vendiendo por debajo del costo.</b>`}else m.textContent='';
+  if(v&&c){const g=v-c;m.innerHTML=g>=0?`Ganas <b class="ok">${money(g)}</b> por unidad.<br>Margen: <b>${Math.round(g/v*100)}%</b> <span class="xs">(de cada $100 que vendes, ${money(g/v*100)} son ganancia)</span><br>Recargo sobre el costo: <b>${Math.round(g/c*100)}%</b> <span class="xs">(le subes ${Math.round(g/c*100)}% a lo que te costó)</span>`:`<b class="bad">Estás vendiendo por debajo del costo: pierdes ${money(-g)} por unidad.</b>`}else m.textContent='';
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
@@ -918,6 +930,10 @@ VIEWS.mas={
   return `<div class="cards"><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Y proveedores</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes</b><span>Fiados y abonos</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>Reportes</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
+  <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
+   <div class="fg"><label class="f">Margen de ganancia por defecto (%)</label><input class="in" name="defMargin" inputmode="decimal" value="${S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''}" placeholder="Ej: 20"><p class="mut xs" style="margin:6px 2px 0">Se pone solo al crear productos nuevos. Puedes cambiarlo en cada producto.</p></div>
+   <div class="fg"><label class="f">Redondear el precio calculado</label><select class="in" name="round"><option value="0" ${!S.meta.round?'selected':''}>Sin redondear (exacto)</option><option value="50" ${S.meta.round==50?'selected':''}>Hacia arriba, a múltiplos de $50</option><option value="100" ${S.meta.round==100?'selected':''}>Hacia arriba, a múltiplos de $100</option></select></div>
+   <button class="btn soft">Guardar</button></form></div>
   <div class="panel"><h3>Mi negocio</h3><form data-form="biz"><div class="fg"><label class="f">Nombre del negocio</label><input class="in" name="business" value="${esc(S.meta.business)}" required></div><div class="fg"><label class="f">Tu nombre</label><input class="in" name="owner" value="${esc(S.meta.owner)}" required></div><button class="btn soft">Guardar cambios</button></form></div>
   <div class="panel"><h3>Modo práctica</h3><p class="mut sm" style="margin:0 0 10px">Carga productos, clientes y ventas de ejemplo para aprender a usar Cuadra sin riesgo. Reemplaza lo que tengas.</p><button class="btn" data-act="load-demo">Cargar datos de ejemplo</button></div>
   <div class="panel"><h3>Instalar en tu equipo</h3><p class="mut sm" style="margin:0">En el celular: menú del navegador → <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>. Después funciona sin internet.</p></div>
@@ -1052,13 +1068,14 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
+  if(k==='pricing'){const fd=new FormData(f);const m=dec(fd.get('defMargin'));S.meta.defMargin=(m>0&&m<100)?m:0;S.meta.round=+fd.get('round')||0;save();toast('Guardado','ok');render()}
   if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();save();toast('Guardado','ok');render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.classList&&t.classList.contains('money')){const n=digits(t.value);t.value=n?fmtInt(n):''}
   if(t.id==='recv'){const tot=cartTotal(),r=digits(t.value);$('#chg').textContent=money(Math.max(0,r-tot))}
-  if(t.closest&&t.closest('form[data-form="product"]')&&(t.name==='cost'||t.name==='price'))marginHint();
+  if(t.closest&&t.closest('form[data-form="product"]')&&['cost','price','margin'].includes(t.name))priceSync(t.closest('form'),t.name);
   if(t.closest&&t.closest('form[data-form="closecaja"]')&&t.name==='counted'){
     const f=t.closest('form'),exp=+f.dataset.exp,c=digits(t.value),box=$('#diff');
     if(t.value===''){box.classList.add('hide');return}

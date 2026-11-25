@@ -716,8 +716,8 @@ const NAV=[
  {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'movimientos',l:'Movimientos',i:'swap',w:1},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
  {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',ventas:'Historial de ventas',etiquetas:'Etiquetas',pedido:'Pedido sugerido',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
-const PARENT={compra:'compras',ventas:'caja',etiquetas:'productos',pedido:'compras'};
+const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',ventas:'Historial de ventas',etiquetas:'Etiquetas',pedido:'Pedido sugerido',conteo:'Conteo de inventario',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
+const PARENT={conteo:'inventario',compra:'compras',ventas:'caja',etiquetas:'productos',pedido:'compras'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
 
@@ -1144,8 +1144,9 @@ VIEWS.inventario={
   const P=S.products.filter(p=>!isKit(p)),val=sum(P,p=>Math.max(0,p.stock)*p.cost),uds=sum(P,p=>Math.max(0,p.stock));
   const low=P.filter(p=>p.stock>0&&p.stock<=p.min).length,out=P.filter(p=>p.stock<=0).length;
   return `<div class="kpis"><div class="kpi hl"><div class="l">Valor de tu mercancía</div><div class="v">${money(val)}</div></div><div class="kpi"><div class="l">Unidades</div><div class="v">${qfmt(uds)}</div></div><div class="kpi"><div class="l">Por acabarse</div><div class="v">${low}</div></div><div class="kpi"><div class="l">Agotados</div><div class="v">${out}</div></div></div>
+  <button class="btn pri big mt" data-act="go" data-to="conteo">${ic('scan','sm')} Hacer conteo de inventario${cntDraft()?' (en curso)':''}</button>
   <div class="searchbar mt"><input id="iq" class="in" placeholder="Buscar producto" autocomplete="off"></div>
-  <div class="chips mt">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados']].map(x=>`<button data-act="invf" data-f="${x[0]}" class="${invF===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  <div class="chips mt">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados'],['piso','Pasar a piso']].map(x=>`<button data-act="invf" data-f="${x[0]}" class="${invF===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
   <div class="panel mt"><div id="ilist" class="list"></div></div>
   <p class="mut sm center mt">Toca un producto para corregir su cantidad (conteo, dañado, vencido…).</p>`;
  },
@@ -1157,16 +1158,121 @@ function ilist(){
   if(q)r=r.filter(p=>pkey(p).includes(q)||(p.barcode||'').includes(q));
   if(invF==='bajo')r=r.filter(p=>p.stock>0&&p.stock<=p.min);
   if(invF==='agotado')r=r.filter(p=>p.stock<=0);
+  if(invF==='piso')r=r.filter(p=>pisoQ(p)<=0&&bodQ(p)>0);
   r.sort((a,b)=>(a.stock-a.min)-(b.stock-b.min)||a.name.localeCompare(b.name));
   if(!S.products.length){el.innerHTML=`<div class="empty"><div class="big">📦</div><b>Aún no hay mercancía</b>Crea tus productos para llevar el inventario.<div class="mt"><button class="btn pri" data-act="new-product">Crear producto</button></div></div>`;return}
   if(!r.length){el.innerHTML=`<div class="empty"><b>Nada por aquí</b>Prueba con otro filtro.</div>`;return}
   el.innerHTML=r.slice(0,300).map(p=>{const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Quedan '+qfmt(p.stock)]:['ok',qfmt(p.stock)+' und'];
-    return `<button class="item" data-act="adj-stock" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">Mínimo ${qfmt(p.min||0)} · ${money(p.stock*p.cost)} al costo</div></div><div class="right"><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+    return `<button class="item" data-act="adj-stock" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">Piso <b>${qfmt(pisoQ(p))}</b> · Bodega <b>${qfmt(bodQ(p))}</b> · mín. ${qfmt(p.min||0)}</div></div><div class="right"><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
 }
+
+/* ---------- CONTEO DE INVENTARIO (piso de venta y bodega) ---------- */
+const pisoQ=p=>Math.max(0,Math.round((p.stock-Math.min(p.bod||0,Math.max(0,p.stock)))*1000)/1000);
+const bodQ=p=>Math.min(p.bod||0,Math.max(0,p.stock));
+let cnt={q:''};
+const cntDraft=()=>S.conteoDraft||null;
+function cntRows(cn){
+  return Object.keys(cn.items).map(id=>{const i=cn.items[id],tot=Math.round((i.piso+i.bod)*1000)/1000,diff=Math.round((tot-i.sys)*1000)/1000;
+    return {id,name:i.name,cost:i.cost||0,barcode:i.barcode,piso:i.piso,bod:i.bod,tot,sys:i.sys,sysBod:i.sysBod||0,diff,val:diff*(i.cost||0)}}).sort((a,b)=>a.diff-b.diff||a.name.localeCompare(b.name));
+}
+function cntStats(rows){
+  const falt=rows.filter(r=>r.diff<0),sob=rows.filter(r=>r.diff>0);
+  return {n:rows.length,nDif:falt.length+sob.length,uFalt:-sum(falt,r=>r.diff),vFalt:-sum(falt,r=>r.val),uSob:sum(sob,r=>r.diff),vSob:sum(sob,r=>r.val),falt,sob};
+}
+function cntStart(){S.conteoDraft={id:uid(),ts:Date.now(),by:S.meta.owner||'',items:{}};save();render()}
+function cntAsk(id,cam){
+  const p=prod(id);if(!p||isKit(p))return;
+  const cn=cntDraft();if(!cn)return;
+  const it=cn.items[id];
+  modal('Contar producto',`<form data-form="cntqty" data-id="${id}" data-cam="${cam?1:''}">
+   <div class="b" style="font-size:18px">${esc(p.name)}</div>
+   <div class="mut sm" style="margin:2px 0 10px">${p.brand?esc(p.brand)+' · ':''}En el sistema: <b>${qfmt(p.stock)}</b> (piso ${qfmt(pisoQ(p))} · bodega ${qfmt(bodQ(p))})</div>
+   <div class="g2"><div class="fg"><label class="f">Piso de venta</label><input class="in" name="piso" value="${it?qfmt(it.piso):''}" placeholder="0" inputmode="decimal" autofocus style="font-size:24px;font-weight:800;text-align:center;min-height:56px"></div>
+   <div class="fg"><label class="f">Bodega</label><input class="in" name="bod" value="${it?qfmt(it.bod):''}" placeholder="0" inputmode="decimal" style="font-size:24px;font-weight:800;text-align:center;min-height:56px"></div></div>
+   <button class="btn pri big">${cam?'Guardar y escanear el siguiente':'Guardar conteo'}</button>${it?`<button type="button" class="btn danger mt" data-act="cnt-rm" data-id="${id}">Quitar de este conteo</button>`:''}</form>`,{top:true});
+}
+function cntSave(f){
+  const cn=cntDraft(),id=f.dataset.id,p=prod(id),fd=new FormData(f);if(!cn||!p)return;
+  const piso=dec(fd.get('piso')||'0'),bod=dec(fd.get('bod')||'0');
+  if(!(piso>=0)||!(bod>=0))return toast('Escribe cantidades válidas','warn');
+  const old=cn.items[id];
+  cn.items[id]={name:p.name,cost:p.cost||0,barcode:p.barcode||'',piso,bod,sys:old?old.sys:p.stock,sysBod:old?old.sysBod:bodQ(p)};
+  save();closeModal();cntRender();
+  toast(`${p.name} · ${qfmt(piso+bod)} und`,'ok');
+  if(f.dataset.cam)setTimeout(scanCount,250);
+}
+function scanCount(){
+  scanner(c=>{const p=S.products.find(x=>x.barcode===c);
+    if(p&&!isKit(p))cntAsk(p.id,true);else toast(p?'Los kits no se cuentan; cuenta sus productos':`Código ${c} no existe`,'warn')},false);
+}
+function cntSignBadge(d){return d===0?'<span class="badge ok">Cuadra</span>':d>0?`<span class="badge" style="background:#E3EAFF;color:#1B3BB3">Sobran ${qfmt(d)}</span>`:`<span class="badge out">Faltan ${qfmt(-d)}</span>`}
+function cntRender(){
+  const cn=cntDraft();if(!cn)return;
+  const rows=cntRows(cn),st=cntStats(rows);
+  const k=$('#ckp');if(k)k.innerHTML=`<div class="kpi hl"><div class="l">Productos contados</div><div class="v">${st.n}</div></div><div class="kpi"><div class="l">Con diferencia</div><div class="v">${st.nDif}</div></div><div class="kpi"><div class="l">Faltan (merma)</div><div class="v bad">${qfmt(st.uFalt)} und</div><div class="xs mut">${money(st.vFalt)} al costo</div></div><div class="kpi"><div class="l">Sobran</div><div class="v">${qfmt(st.uSob)} und</div></div>`;
+  const l=$('#cl');if(l)l.innerHTML=rows.length?rows.map(r=>`<button class="item" data-act="cnt-ask" data-id="${r.id}"><div class="grow"><div class="t">${esc(r.name)}</div><div class="s">Piso <b>${qfmt(r.piso)}</b> · Bodega <b>${qfmt(r.bod)}</b> = ${qfmt(r.tot)} · sistema ${qfmt(r.sys)}</div></div><div class="right">${cntSignBadge(r.diff)}</div></button>`).join(''):'<div class="empty">Escanea el primer producto para empezar</div>';
+  const res=$('#cres');if(res){const q=cnt.q.trim();res.innerHTML=q?findProducts(q,6,false).filter(p=>!isKit(p)).map(p=>`<button class="item" data-act="cnt-ask" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${pbr(p)}sistema ${qfmt(p.stock)}${p.barcode?' · '+esc(p.barcode):''}</div></div><span class="badge gray">Contar</span></button>`).join('')||'<div class="mut sm">Sin resultados</div>':''}
+}
+function cntText(cn,title){
+  const rows=cntRows(cn),st=cntStats(rows);
+  let t=`*${title||'Conteo de inventario'} · ${S.meta.business}*\n${fmtDT(cn.ts)}${cn.by?'\nContó: '+cn.by:''}\n\nProductos contados: ${st.n}\nCon diferencia: ${st.nDif}\n\n*MERMAS (faltantes)*\n`;
+  t+=st.falt.length?st.falt.map(r=>`• ${r.name}: sistema ${qfmt(r.sys)}, contó ${qfmt(r.tot)} (piso ${qfmt(r.piso)} / bodega ${qfmt(r.bod)}) → faltan ${qfmt(-r.diff)} = ${money(-r.val)}`).join('\n'):'Ninguna';
+  t+=`\nTotal merma: ${qfmt(st.uFalt)} und = ${money(st.vFalt)}`;
+  if(st.sob.length)t+=`\n\n*SOBRANTES*\n`+st.sob.map(r=>`• ${r.name}: sobran ${qfmt(r.diff)} = ${money(r.val)}`).join('\n');
+  return t;
+}
+function cntHTML(cn,title){
+  const rows=cntRows(cn),st=cntStats(rows),L=(k,v,b)=>`<div class="l"><span>${b?'<b>'+k+'</b>':k}</span><span>${b?'<b>'+v+'</b>':v}</span></div>`;
+  const line=r=>`<div style="margin:3px 0"><b>${esc(r.name)}</b><br>Sist. ${qfmt(r.sys)} · Piso ${qfmt(r.piso)} · Bod. ${qfmt(r.bod)} · Total ${qfmt(r.tot)}<br>${r.diff<0?'FALTAN '+qfmt(-r.diff)+' ('+money(-r.val)+')':r.diff>0?'SOBRAN '+qfmt(r.diff):'Cuadra'}</div>`;
+  return `<h4>${esc(S.meta.business)}</h4><div style="text-align:center">${esc((title||'CONTEO DE INVENTARIO').toUpperCase())}<br>${fmtDT(cn.ts)}</div><hr>${cn.by?L('Contó',esc(cn.by)):''}${L('Productos contados',st.n)}${L('Con diferencia',st.nDif)}<hr>
+   <div style="text-align:center"><b>REPORTE DE MERMAS</b></div>${st.falt.length?st.falt.map(line).join(''):'<div style="text-align:center">Sin faltantes</div>'}<hr>${L('Unidades faltantes',qfmt(st.uFalt),1)}${L('Valor de la merma',money(st.vFalt),1)}
+   ${st.sob.length?`<hr><div style="text-align:center"><b>SOBRANTES</b></div>${st.sob.map(line).join('')}<hr>${L('Unidades sobrantes',qfmt(st.uSob),1)}`:''}<br><br><div style="text-align:center">______________________<br>Firma</div>`;
+}
+function cntApply(){
+  const cn=cntDraft();if(!cn)return;const rows=cntRows(cn),st=cntStats(rows);
+  if(!rows.length)return toast('Cuenta al menos un producto','warn');
+  ask('Aplicar diferencias',`Se ajustará el inventario de ${st.n} ${st.n===1?'producto':'productos'}: ${qfmt(st.uFalt)} unidades de merma (${money(st.vFalt)}) y ${qfmt(st.uSob)} de sobrante. También queda guardado dónde está cada cosa (piso y bodega). No se puede deshacer.`,'Aplicar',true).then(ok=>{
+    if(!ok)return;
+    rows.forEach(r=>{const p=prod(r.id);if(!p)return;const after=Math.round((p.stock+r.diff)*1000)/1000;
+      if(r.diff!==0)(S.adjusts=S.adjusts||[]).push({id:uid(),ts:Date.now(),pid:p.id,name:p.name,before:p.stock,after,why:'Conteo de inventario'});
+      p.stock=Math.max(0,after);p.bod=Math.min(r.bod,p.stock)});
+    cn.applied=Date.now();(S.conteos=S.conteos||[]).push(cn);S.conteoDraft=null;save();
+    toast('Diferencias aplicadas. Inventario actualizado','ok');cntView(cn.id);render();
+  });
+}
+function cntView(id){
+  const cn=(S.conteos||[]).find(x=>x.id===id)||(cntDraft()&&cntDraft().id===id?cntDraft():null);if(!cn)return;
+  const st=cntStats(cntRows(cn));
+  modal('Reporte de mermas',`<div class="mut sm" style="margin:-4px 0 8px">${fmtDT(cn.ts)}${cn.by?' · '+esc(cn.by):''}${cn.applied?' · <b class="ok">Aplicado</b>':''}</div>
+   <div class="dbox ${st.uFalt?'low':'ok'}"><div class="dt">${st.uFalt?'Merma del conteo':'Sin faltantes'}</div><div class="dv">${money(st.vFalt)}</div><div class="dt">${qfmt(st.uFalt)} unidades faltantes</div></div>
+   <div class="list">${cntRows(cn).filter(r=>r.diff!==0).map(r=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(r.name)}</div><div class="s">Sistema ${qfmt(r.sys)} · piso ${qfmt(r.piso)} · bodega ${qfmt(r.bod)}</div></div><div class="right">${cntSignBadge(r.diff)}</div></div>`).join('')||'<div class="mut sm center">Todo cuadró</div>'}</div>
+   <div class="g2 mt"><button class="btn soft" data-act="cnt-wa" data-id="${cn.id}">${ic('chat','sm')} WhatsApp</button><button class="btn pri" data-act="cnt-print" data-id="${cn.id}">${ic('print','sm')} Imprimir</button></div>`);
+}
+const cntFind=id=>(S.conteos||[]).find(x=>x.id===id)||(cntDraft()&&cntDraft().id===id?cntDraft():null);
+VIEWS.conteo={
+ html(){
+  const cn=cntDraft(),hist=(S.conteos||[]).slice().reverse().slice(0,10);
+  const histH=hist.length?`<details class="panel mt"><summary style="cursor:pointer;font-weight:800;font-size:15px">Conteos anteriores (${hist.length})</summary><div class="list mt">${hist.map(h=>{const st=cntStats(cntRows(h));return `<button class="item" data-act="cnt-view" data-id="${h.id}"><div class="grow"><div class="t">${fmtDT(h.ts)}</div><div class="s">${st.n} contados · merma ${money(st.vFalt)}</div></div><span class="badge ${h.applied?'ok':'gray'}">${h.applied?'Aplicado':'Sin aplicar'}</span></button>`}).join('')}</div></details>`:'';
+  if(!cn)return `<div class="panel center" style="padding:24px 16px">${ic('list','lg')}<h2 style="margin:10px 0 4px">Conteo de inventario</h2><p class="mut" style="margin:0 0 14px">Cuenta la mercancía producto por producto, separando <b>piso de venta</b> y <b>bodega</b>. Al final ves las mermas y aplicas las diferencias.</p><button class="btn pri big" data-act="cnt-start" style="max-width:320px">Empezar conteo</button></div>${histH}`;
+  return `<div id="ckp" class="kpis"></div>
+  <div class="panel mt"><h3>1. Escanea o busca el producto</h3><div class="searchbar"><input id="cq" class="in" placeholder="Escanea o escribe el producto" value="${esc(cnt.q)}" autocomplete="off" enterkeyhint="search"><button class="btn pri icon" data-act="cnt-scan" aria-label="Escanear con cámara">${ic('scan')}</button></div><p class="mut xs" style="margin:6px 2px 0">Después de cada escaneo escribes las unidades del piso y de la bodega, y sigue el siguiente. Con pistola lectora funciona en el cuadro de búsqueda.</p><div id="cres" class="list mt"></div></div>
+  <div class="panel mt"><h3>2. Lo que has contado</h3><div id="cl" class="list"></div></div>
+  <div class="panel mt"><h3>3. Reporte y diferencias</h3><div class="g2"><button class="btn soft" data-act="cnt-wa" data-id="${cn.id}">${ic('chat','sm')} Enviar</button><button class="btn soft" data-act="cnt-print" data-id="${cn.id}">${ic('print','sm')} Imprimir</button></div>
+   <button class="btn pri big mt" data-act="cnt-apply">${ic('check','sm')} Aplicar diferencias</button><button class="btn danger mt" data-act="cnt-discard">Descartar este conteo</button></div>${histH}`;
+ },
+ after(){
+  cntRender();const q=$('#cq');if(!q)return;
+  q.addEventListener('input',()=>{cnt.q=q.value;cntRender()});
+  q.addEventListener('keydown',e=>{if(e.key!=='Enter')return;e.preventDefault();const v=q.value.trim();if(!v)return;
+    const ex=S.products.find(p=>p.barcode===v&&!isKit(p));if(ex){q.value='';cnt.q='';cntRender();cntAsk(ex.id,false)}else{const r=findProducts(v,2,false).filter(p=>!isKit(p));if(r.length===1){q.value='';cnt.q='';cntRender();cntAsk(r[0].id,false)}}});
+ }
+};
+
 function adjustForm(id){
   const p=prod(id);if(!p)return;
   const ov=modal('Corregir cantidad',`<form data-form="adj" data-id="${p.id}"><p style="margin:0 0 10px"><b>${esc(p.name)}</b><br><span class="mut sm">En el sistema hay ${qfmt(p.stock)} unidades.</span></p>
    <div class="fg"><label class="f">¿Cuántas hay realmente?</label><input class="in" name="qty" inputmode="decimal" value="${qfmt(p.stock)}" autofocus required></div>
+   <div class="fg"><label class="f">De ese total, ¿cuántas están en bodega?</label><input class="in" name="bod" inputmode="decimal" value="${qfmt(bodQ(p))}"></div>
    <div class="fg"><label class="f">Motivo</label><select class="in" name="why">${INV_WHY.map(w=>`<option>${w}</option>`).join('')}</select></div>
    <button class="btn pri big">Guardar</button></form>`);
 }
@@ -2001,7 +2107,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="etiquetas"><div class="ic">${ic('tag','lg')}</div><b>Etiquetas</b><span>Precio y código de barras</span></a><a class="mod" data-act="go" data-to="pedido"><div class="ic">${ic('truck','lg')}</div><b>Pedido sugerido</b><span>Lo que toca pedir</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="etiquetas"><div class="ic">${ic('tag','lg')}</div><b>Etiquetas</b><span>Precio y código de barras</span></a><a class="mod" data-act="go" data-to="pedido"><div class="ic">${ic('truck','lg')}</div><b>Pedido sugerido</b><span>Lo que toca pedir</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="conteo"><div class="ic">${ic('scan','lg')}</div><b>Conteo de inventario</b><span>Piso, bodega y mermas</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Ayuda y pantalla</h3><div class="g2"><button class="btn ${S.meta.big?'pri':'soft'}" data-act="big-toggle">${S.meta.big?'✔ Letra grande':'Letra grande'}</button><button class="btn soft" data-act="guide-open">Ver la guía rápida</button></div><p class="mut xs" style="margin:8px 2px 0">La letra grande agranda todo para leer mejor.</p></div>
   <div class="panel"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
@@ -2330,6 +2436,15 @@ document.addEventListener('click',async e=>{
    'cat-del'(){const c=S.cats.find(x=>x.id===d.id);ask('Borrar categoría','Los movimientos que ya guardaste no cambian.','Borrar',true).then(ok=>{if(ok){S.cats=S.cats.filter(x=>x.id!==c.id);save();closeModal();render()}})},
    'close-caja'(){closeCajaForm()},
    'arqueo'(){arqueoForm()},
+   'cnt-start'(){cntStart()},
+   'cnt-scan'(){scanCount()},
+   'cnt-ask'(){cntAsk(d.id,false);},
+   'cnt-rm'(){const cn=cntDraft();if(cn){delete cn.items[d.id];save();closeModal();cntRender()}},
+   'cnt-apply'(){cntApply()},
+   'cnt-discard'(){ask('Descartar conteo','Se pierde lo contado hasta ahora. El inventario no cambia.','Descartar',true).then(ok=>{if(ok){S.conteoDraft=null;save();render()}})},
+   'cnt-view'(){cntView(d.id)},
+   'cnt-wa'(){const cn=cntFind(d.id);if(cn)window.open('https://wa.me/?text='+encodeURIComponent(cntText(cn)),'_blank')},
+   'cnt-print'(){const cn=cntFind(d.id);if(!cn)return;$('#print').className='';$('#print').innerHTML=cntHTML(cn);setTimeout(()=>print(),60)},
    'arq-view'(){arqView(d.id)},
    'arq-wa'(){const f=findArq(d.id);if(f)window.open('https://wa.me/?text='+encodeURIComponent(arqText(f.a,f.c)),'_blank')},
    'arq-print'(){const f=findArq(d.id);if(!f)return;$('#print').className='';$('#print').innerHTML=arqHTML(f.a,f.c);setTimeout(()=>print(),60)},
@@ -2404,6 +2519,7 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
+  if(k==='cntqty'){cntSave(f);return}
   if(k==='arqueo')saveArqueo(f,e.submitter&&e.submitter.dataset.after);
   if(k==='disc'){const fd=new FormData(f);cartX.dk=fd.get('dk')==='%'?'%':'$';let v=digits(fd.get('dv'));if(cartX.dk==='%')v=Math.min(100,v);cartX.dv=v;closeModal();renderCart();return}
   if(k==='dom'){cartX.dom=digits(new FormData(f).get('dom'));closeModal();renderCart();return}
@@ -2425,7 +2541,7 @@ document.addEventListener('submit',e=>{
     S.movements.push({id:uid(),ts:Date.now(),type:'gasto',cat,method,concept:det||cat,amount,cajaId:method==='efectivo'?c.id:''});
     save();closeModal();toast('Gasto guardado','ok');render();return}
   if(k==='adj'){const fd=new FormData(f),p=prod(f.dataset.id),q=dec(fd.get('qty'));if(!p||!(q>=0))return toast('Escribe una cantidad válida','warn');
-    (S.adjusts=S.adjusts||[]).push({id:uid(),ts:Date.now(),pid:p.id,name:p.name,before:p.stock,after:q,why:fd.get('why')});p.stock=q;save();closeModal();toast('Cantidad corregida','ok');render();return}
+    (S.adjusts=S.adjusts||[]).push({id:uid(),ts:Date.now(),pid:p.id,name:p.name,before:p.stock,after:q,why:fd.get('why')});p.stock=q;p.bod=Math.min(Math.max(0,dec(fd.get('bod')||'0')||0),q);save();closeModal();toast('Cantidad corregida','ok');render();return}
   if(k==='pin'){const fd=new FormData(f),a=(fd.get('pin')||'').trim(),b=(fd.get('pin2')||'').trim();
     if(!/^\d{4,6}$/.test(a))return toast('El PIN debe tener de 4 a 6 números','warn');
     if(a!==b)return toast('Los dos PIN no coinciden','warn');

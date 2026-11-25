@@ -91,6 +91,9 @@ nav.nav a.on svg{background:var(--pri-l);padding:4px 16px;width:24px;height:24px
 .kit-sum{background:var(--pri-l);border-radius:14px;padding:10px 14px;margin:12px 0}
 .kit-sum .prow{border-top:0;padding:5px 0;font-size:14.5px}
 .badge.kit{background:var(--acc-l);color:#8A4A00}
+form[data-form=kit] input[name=margin]{background:#FFF4E5;border-color:#F3D3A3}
+form[data-form=kit] input[name=price]{background:#E8F7EE;border-color:#B9E2C8}
+form[data-form=kit] input[name=margin]:focus,form[data-form=kit] input[name=price]:focus{background:#fff}
 /* ---------- ui ---------- */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
 .panel+.panel{margin-top:12px}
@@ -1127,6 +1130,7 @@ VIEWS.vender={
   <div class="vwrap">
    <div class="vmain">
     <div class="vsearch"><input id="vq" class="in" placeholder="Escanea o escribe el producto" autocomplete="off" enterkeyhint="search"><button class="btn pri icon" data-act="scan-sale" aria-label="Escanear con cámara">${ic('scan')}</button></div>
+    <label class="favchk" style="margin:8px 2px 0"><input type="checkbox" id="askqty" ${S.meta.askQty!==false?'checked':''}> <span>Preguntar cuántas unidades al escanear</span></label>
     <div id="vres"></div>
     <div id="vlines"></div>
    </div>
@@ -1169,13 +1173,36 @@ function findProducts(q,limit=40,nameOnly=false){
 function enterSale(v){
   if(!v)return;
   const exact=S.products.find(p=>p.barcode===v);
-  if(exact){addCart(exact.id);$('#vq').value='';renderRes();return}
+  if(exact){$('#vq').value='';renderRes();S.meta.askQty!==false?saleAsk(exact.id,false):addCart(exact.id);return}
   const r=findProducts(v,2,true);
   if(r.length>=1){addCart(r[0].id);$('#vq').value='';renderRes();return}
   if(!r.length){
     if(/^\d{5,}$/.test(v)){toast(`Código ${v} no existe. Créalo ahora.`,'warn');productForm(null,{barcode:v,addToCart:true})}
     else toast('No encontré ese producto','warn');
   }
+}
+function scanSale(){
+  scanner(c=>{const p=S.products.find(x=>x.barcode===c);
+    if(p)saleAsk(p.id,true);
+    else{toast(`Código ${c} no existe. Créalo ahora.`,'warn');productForm(null,{barcode:c,addToCart:true,cam:true})}
+  },false);
+}
+function saleAsk(id,cam){
+  const p=prod(id);if(!p)return;
+  if(p.bulk){weighForm(id,cam);return}
+  const l=cart.find(x=>x.pid===id);
+  modal('¿Cuántas unidades?',`<form data-form="saleqty" data-id="${id}" data-cam="${cam?1:''}">
+   <div class="b" style="font-size:18px">${esc(p.name)}</div>
+   <div class="mut sm" style="margin:2px 0 12px">${p.brand?esc(p.brand)+' · ':''}${money(p.price)} c/u · hay ${qfmt(p.stock)}${l?` · ya llevas ${qfmt(l.qty)}`:''}</div>
+   <div class="fg"><label class="f">Unidades</label><input class="in" name="qty" value="1" inputmode="decimal" required autofocus style="font-size:26px;font-weight:800;text-align:center;min-height:58px"></div>
+   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la venta'}</button></form>`);
+}
+function addCartQty(id,q){
+  const p=prod(id);if(!p)return;
+  const l=cart.find(x=>x.pid===id);
+  if(l)l.qty=Math.round((l.qty+q)*1000)/1000;else cart.push({pid:id,name:p.name,price:p.price,cost:p.cost,qty:q});
+  renderCart();
+  toast(`${p.name} · ${qfmt(q)} und`,'ok');
 }
 function addCart(id,fromScan){
   const p=prod(id);if(!p)return;
@@ -1187,9 +1214,9 @@ function addCart(id,fromScan){
 }
 const expDays=p=>p.exp?Math.floor((new Date(p.exp+'T23:59:59')-Date.now())/DAY):null;
 const prodPrice=(p,q)=>(p.ws&&p.ws.min>0&&p.ws.price>0&&q>=p.ws.min)?p.ws.price:p.price;
-function weighForm(id){
+function weighForm(id,cam){
   const p=prod(id);
-  modal('Pesar · '+p.name,`<form data-form="weigh" data-id="${id}"><div class="mut sm" style="margin:-4px 0 10px">${money(p.price)} el kilo</div>
+  modal('Pesar · '+p.name,`<form data-form="weigh" data-id="${id}" data-cam="${cam?1:''}"><div class="mut sm" style="margin:-4px 0 10px">${money(p.price)} el kilo</div>
    <div class="g2"><div class="fg"><label class="f">Peso (gramos)</label><input class="in" name="wg" inputmode="numeric" placeholder="Ej: 350" autofocus></div>
    <div class="fg"><label class="f">o valor ($)</label><input class="in money" name="wv" inputmode="numeric" placeholder="Ej: 5000"></div></div>
    <div class="total" style="font-size:20px"><span class="mut" style="font-size:14px">Cobrar</span><span id="wtot">${money(0)}</span></div>
@@ -1357,7 +1384,7 @@ function plist(){
 }
 
 /* ---------- KITS Y LISTAS ESCOLARES ---------- */
-let kt={id:'',items:[],auto:true};
+let kt={id:'',items:[],src:'auto'};
 function kitAdd(pid){
   const p=prod(pid);if(!p||isKit(p))return;
   const l=kt.items.find(x=>x.pid===pid);if(l)l.qty+=1;else kt.items.push({pid,qty:1});
@@ -1374,30 +1401,34 @@ function ktDraw(){
   const el=$('#ktlines');if(!el)return;
   el.innerHTML=kt.items.length?kt.items.map((c,i)=>{const p=prod(c.pid);if(!p)return '';
     return `<div class="kit-line"><div class="kn"><b>${esc(p.name)}</b><small>${pbr(p)}${money(p.price)} c/u · hay ${qfmt(p.stock)}</small></div><div class="qty"><button type="button" data-act="kit-qty" data-i="${i}" data-d="-1">−</button><input value="${qfmt(c.qty)}" inputmode="numeric" data-ktq="${i}"><button type="button" data-act="kit-qty" data-i="${i}" data-d="1">+</button></div><button type="button" class="btn sm danger icon" data-act="kit-del" data-i="${i}" aria-label="Quitar">${ic('trash','sm')}</button></div>`}).join(''):'<div class="empty" style="padding:14px">Agrega los productos que lleva el kit</div>';
-  ktTotals(true);
+  ktTotals();
 }
-function ktTotals(redraw){
-  const box=$('#kttot'),pr=$('#ktprice');if(!box)return;
+function ktTotals(){
+  const box=$('#kttot'),pr=$('#ktprice'),mg=$('#ktmargin');if(!box||!pr)return;
   const tmp={kit:kt.items},ref=kitRef(tmp),cost=Math.round(kitCost(tmp));
-  if(kt.auto&&pr&&(redraw||!pr.value))pr.value=ref?fmtInt(ref):'';
-  const price=digits(pr&&pr.value),arm=kt.items.length?kitStock(tmp):0;
+  if(kt.src==='auto'){pr.value=ref?fmtInt(ref):''}
+  if(kt.src==='margin'){const m=dec(mg.value);if(cost&&m>0&&m<100)pr.value=fmtInt(roundUp(cost/(1-m/100)));else if(!m)pr.value=''}
+  const price=digits(pr.value),arm=kt.items.length?kitStock(tmp):0;
+  if(kt.src!=='margin')mg.value=(price&&cost)?String(Math.round((price-cost)/price*1000)/10).replace('.',','):'';
   box.innerHTML=kt.items.length?`<div class="kit-sum">
-    <div class="prow"><span>Todo suelto costaría</span><b>${money(ref)}</b></div>
-    <div class="prow"><span>Te cuesta armarlo</span><b>${money(cost)}</b></div>
-    ${price?`<div class="prow"><span>Ganas con el kit</span><b class="${price>=cost?'ok':'bad'}">${money(price-cost)}${price?` (${Math.round((price-cost)/price*1000)/10}%)`:''}</b></div>`:''}
+    <div class="prow"><span>Tu cliente pagaría si compra todo suelto</span><b>${money(ref)}</b></div>
+    <div class="prow"><span>Lo que pagaste tú por estos productos</span><b>${money(cost)}</b></div>
+    ${price?`<div class="prow"><span>Ganas con el kit</span><b class="${price>=cost?'ok':'bad'}">${money(price-cost)} (${Math.round((price-cost)/price*1000)/10}%)</b></div>`:''}
     ${price&&ref>price?`<div class="prow"><span>El cliente ahorra</span><b>${money(ref-price)} (${Math.round((ref-price)/ref*1000)/10}%)</b></div>`:''}
     <div class="prow"><span>Con tu inventario se pueden armar</span><b>${qfmt(arm)}</b></div></div>`:'';
 }
 function kitForm(id){
   const p=id?prod(id):null;
-  kt={id:id||'',items:p?p.kit.map(c=>({...c})):[],auto:!p};
+  kt={id:id||'',items:p?p.kit.map(c=>({...c})):[],src:p?'price':((+S.meta.defMargin>0)?'margin':'auto')};
   modal(p?'Editar kit':'Nuevo kit o lista escolar',`<form data-form="kit" data-id="${p?p.id:''}">
    <p class="mut sm" style="margin:-2px 0 12px">Junta varios productos en uno solo, con un único código. Al vender el kit, Cuadra descuenta cada producto del inventario.</p>
    <div class="fg"><label class="f">Nombre del kit o lista</label><input class="in" name="name" required value="${esc(p?p.name:'')}" placeholder="Ej: Lista escolar 3° primaria" ${p?'':'autofocus'}></div>
    <div class="fg"><label class="f">Código del kit</label><div class="searchbar"><input class="in grow" name="barcode" id="pbc" value="${esc(p?p.barcode:'')}" placeholder="Escanea, escribe o crea uno" inputmode="numeric"><button type="button" class="btn soft icon" data-act="scan-field" aria-label="Escanear">${ic('scan')}</button><button type="button" class="btn sm" style="min-height:46px" data-act="gen-code">Crear</button></div><div class="mut xs" style="margin-top:4px">Lo mejor es crear un código propio, imprimirlo en Etiquetas y pegarlo en la bolsa del kit.</div></div>
    <div class="fg"><label class="f">Agrega los productos del kit</label><div class="searchbar"><input class="in grow" id="ktq" placeholder="Escribe o escanea el producto" autocomplete="off"><button type="button" class="btn pri icon" data-act="kit-scan" aria-label="Escanear">${ic('scan')}</button></div><div id="ktres" class="mt"></div></div>
    <div id="ktlines"></div><div id="kttot"></div>
-   <div class="fg"><label class="f">Precio de venta del kit</label><input class="in money" name="price" id="ktprice" inputmode="numeric" required placeholder="0" value="${p&&p.price?fmtInt(p.price):''}"></div>
+   <div class="g2"><div class="fg"><label class="f">Margen de ganancia (%)</label><input class="in" name="margin" id="ktmargin" inputmode="decimal" placeholder="Ej: 20" value="${!p&&+S.meta.defMargin>0?String(S.meta.defMargin).replace('.',','):''}"></div>
+   <div class="fg"><label class="f">Precio de venta del kit</label><input class="in money" name="price" id="ktprice" inputmode="numeric" required placeholder="0" value="${p&&p.price?fmtInt(p.price):''}"></div></div>
+   <div class="mut xs" style="margin:-6px 0 12px">Igual que en los productos: escribe el margen que quieres ganar y Cuadra calcula el precio como costo ÷ (1 − margen). Ejemplo: costo $9.500 y margen 20% → $9.500 ÷ 0,80 = <b>$11.875</b>. También puedes escribir el precio y verás el margen.</div>
    <button class="btn pri big">Guardar kit</button>
    ${p?`<button type="button" class="btn danger big mt" data-act="del-product" data-id="${p.id}">${ic('trash','sm')} Eliminar kit</button>`:''}
   </form>`,{wide:true});
@@ -1491,7 +1522,7 @@ function saveProduct(f){
   let p;
   if(id){p=prod(id);Object.assign(p,o)}else{p={id:uid(),sold:0,...o};S.products.push(p)}
   save();closeModal();toast('Producto guardado','ok');
-  if(f.dataset.addcart&&!id){addCart(p.id)}
+  if(f.dataset.addcart&&!id){if(f.dataset.cam&&S.meta.askQty!==false)saleAsk(p.id,true);else addCart(p.id)}
   if(f.dataset.buy&&!id&&pd){buyAsk(p.id,!!f.dataset.cam)}
   const {r}=parseHash();if(r==='productos')plist();if(r==='vender'){renderRes();renderCart()}if(r==='home'||r==='compra')render();
 }
@@ -2102,7 +2133,7 @@ document.addEventListener('click',async e=>{
    'onb-mode'(){$$('#onbseg button').forEach(b=>b.classList.toggle('on',b===el));$('input[name=mode]').value=d.m;$('#onbhelp').textContent=d.m==='demo'?'Cargamos productos, clientes y ventas de ejemplo para que practiques sin riesgo.':'Empiezas con tu inventario en blanco.'},
    'open-caja'(){openCajaForm(()=>render())},
    'exit-practice'(){ask('Empezar con tus datos','Se borran los datos de ejemplo y empiezas con el inventario en blanco.','Empezar',false).then(ok=>{if(ok){const m={business:S.meta.business,owner:S.meta.owner,type:S.meta.type};S=blank();Object.assign(S.meta,m);save();go('home');render()}})},
-   'scan-sale'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p){addCart(p.id)}else{closeModal();toast(`Código ${c} no existe`,'warn');productForm(null,{barcode:c,addToCart:true})}},true)},
+   'scan-sale'(){if(S.meta.askQty!==false)scanSale();else scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p){addCart(p.id)}else{closeModal();toast(`Código ${c} no existe`,'warn');productForm(null,{barcode:c,addToCart:true})}},true)},
    'scan-find'(){scanner(c=>{$('#pq').value=c;plist();const p=S.products.find(x=>x.barcode===c);toast(p?p.name:'Código '+c+' no existe',p?'ok':'warn')},false)},
    'scan-field'(){scanner(c=>{const i=$('#pbc');if(i){i.value=c;const p=S.products.find(x=>x.barcode===c);toast(p?`Ya existe: ${p.name}`:'Código leído',p?'warn':'ok')}},false)},
    'scan-buy'(){scanBuy()},
@@ -2228,6 +2259,10 @@ document.addEventListener('submit',e=>{
     location.hash='#/home';shell();render();if(!S.meta.guide)setTimeout(()=>guide(0),500);return}
   if(k==='product')saveProduct(f);
   if(k==='kit')saveKit(f);
+  if(k==='saleqty'){const fd=new FormData(f),id=f.dataset.id,q=dec(fd.get('qty')),cam=!!f.dataset.cam;
+    if(!prod(id))return;if(!(q>0))return toast('Escribe cuántas unidades','warn');
+    closeModal();addCartQty(id,q);
+    if(cam)setTimeout(scanSale,250);else{const i=$('#vq');i&&innerWidth>=900&&i.focus()}return}
   if(k==='buyqty'){const fd=new FormData(f),id=f.dataset.id,p=prod(id),q=dec(fd.get('qty')),cost=digits(fd.get('cost')),cam=!!f.dataset.cam;
     if(!p||!pd)return;if(!(q>0))return toast('Escribe cuántas unidades llegaron','warn');
     const l=pd.items.find(x=>x.pid===id);if(l){l.qty=Math.round((l.qty+q)*1000)/1000;if(cost)l.cost=cost}else pd.items.push({pid:id,name:p.name,qty:q,cost:cost||p.cost||0});
@@ -2244,7 +2279,7 @@ document.addEventListener('submit',e=>{
   if(k==='weigh'){const fd=new FormData(f),p=prod(f.dataset.id);let q=0;const g=dec(fd.get('wg')),v=digits(fd.get('wv'));
     if(g>0)q=g/1000;else if(v>0)q=v/p.price;if(!(q>0))return toast('Escribe el peso o el valor','warn');
     q=Math.round(q*1000)/1000;const l=cart.find(x=>x.pid===p.id);if(l)l.qty=Math.round((l.qty+q)*1000)/1000;else cart.push({pid:p.id,name:p.name,price:p.price,cost:p.cost,qty:q,bulk:true});
-    closeModal();renderCart();toast(`${p.name} · ${qfmt(q)} kg`,'ok');return}
+    closeModal();renderCart();toast(`${p.name} · ${qfmt(q)} kg`,'ok');if(f.dataset.cam)setTimeout(scanSale,250);return}
   if(k==='cat'){const fd=new FormData(f),name=(fd.get('name')||'').trim(),id=f.dataset.id;
     if(!name)return toast('Escribe el nombre','warn');
     if(mcats().some(x=>x.id!==id&&x.kind===fd.get('kind')&&norm(x.name)===norm(name)))return toast('Ya existe esa categoría','warn');
@@ -2277,14 +2312,16 @@ document.addEventListener('input',e=>{
     if(t.value===''){box.classList.add('hide');return}
     const d=c-exp;box.className='tip '+(d===0?'ok':'warn');box.innerHTML=d===0?'✔ ¡Cuadra perfecto!':d>0?`Te sobran ${money(d)}`:`Te faltan ${money(-d)}`;
   }
-  if(t.id==='ktprice'){kt.auto=false;ktTotals()}
-  if(t.dataset&&t.dataset.ktq!==undefined){const l=kt.items[+t.dataset.ktq];if(l){l.qty=Math.max(1,Math.round(dec(t.value))||1);ktTotals(kt.auto)}}
+  if(t.id==='ktprice'){kt.src='price';ktTotals()}
+  if(t.id==='ktmargin'){kt.src='margin';ktTotals()}
+  if(t.dataset&&t.dataset.ktq!==undefined){const l=kt.items[+t.dataset.ktq];if(l){l.qty=Math.max(1,Math.round(dec(t.value))||1);ktTotals()}}
   if(t.dataset&&t.dataset.pl!==undefined){const l=pd.items[+t.dataset.pl];l[t.dataset.f]=t.dataset.f==='qty'?dec(t.value):digits(t.value);purTotal()}
 });
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.qty!==undefined){const i=+t.dataset.qty,q=dec(t.value);if(q<=0)cart.splice(i,1);else cart[i].qty=q;renderCart()}
   if(t.id==='fcust')pay.cust=t.value;
+  if(t.id==='askqty'){S.meta.askQty=t.checked;save();toast(t.checked?'Al escanear te preguntaré las unidades':'Al escanear se agrega 1 unidad','ok')}
   if(t.id==='pfile'||t.id==='pfile2'){photoPick(t);return}
   if(t.id==='lfile'){logoPick(t);return}
   if(t.id==='impfile'&&t.files[0]){const f=t.files[0];t.value='';(async()=>{try{const rows=/\.xlsx$/i.test(f.name)?await xlsxRows(await f.arrayBuffer()):csvRows(await f.text());impLoad(rows)}catch(err){toast('No pude leer el archivo. Prueba guardándolo como CSV.','bad')}})();return}

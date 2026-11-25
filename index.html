@@ -167,8 +167,7 @@ table.t td.r,table.t th.r{text-align:right}
 
 /* sale layout */
 .vgrid{display:grid;gap:12px;grid-template-areas:"s" "c" "r"}
-#vsearch{grid-area:s} #vcart{grid-area:c} #vres{grid-area:r}
-@media (min-width:900px){.vgrid{grid-template-columns:minmax(0,1fr) 420px;grid-template-areas:"s c" "r c";align-items:start}#vcart{position:sticky;top:76px}}
+
 .pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 @media (min-width:600px){.pgrid{grid-template-columns:repeat(3,1fr)}}
 @media (min-width:1200px){.pgrid{grid-template-columns:repeat(4,1fr)}}
@@ -265,6 +264,38 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
   .gside{align-items:flex-start;padding:18px 16px 30px}
 }
 @media (prefers-reduced-motion:reduce){.gate *{animation-duration:.01s!important;animation-delay:0s!important}}
+
+/* ---------- vender (diseño limpio) ---------- */
+.vwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:1000px;margin:0 auto}
+.vwrap>*{min-width:0}
+.vsearch{display:flex;gap:10px}
+.vsearch .in{height:60px;font-size:20px;border-radius:18px;background:#fff;border:2px solid var(--line);padding:0 20px}
+.vsearch .in:focus{border-color:var(--pri);box-shadow:0 0 0 4px var(--pri-l)}
+.vsearch .btn.icon{width:60px;height:60px;border-radius:18px;flex:none}
+.vpills{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.vpills button{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:9px 16px;font-weight:700;font-size:15px;cursor:pointer}
+.vpills button:active{background:var(--pri-l)}
+.vpills .all{background:var(--pri-l);border-color:transparent;color:var(--pri-d);display:inline-flex;gap:6px;align-items:center}
+.vsug{display:grid;gap:6px;margin-top:10px}
+.vsug button{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;text-align:left}
+.vsug button:first-child{border-color:var(--pri);background:var(--pri-l)}
+.vsug .n{font-weight:700;font-size:17px}.vsug .p{font-weight:800;color:var(--pri)}.vsug .out{opacity:.5}
+.vempty{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:46px 16px;color:var(--mut)}
+.vempty svg{width:64px;height:64px;color:var(--pri);opacity:.55;margin-bottom:6px}
+.vempty b{font-size:22px;color:var(--ink)}
+.vlines{margin-top:14px;background:#fff;border-radius:18px;box-shadow:var(--sh);padding:6px 16px}
+.vl{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.vl:last-child{border-bottom:0}.vl .n{font-weight:700;font-size:17px}
+.vside{background:#fff;border-radius:20px;box-shadow:var(--sh);padding:16px 18px;display:grid;gap:10px;position:sticky;bottom:calc(var(--navh) + 8px + env(safe-area-inset-bottom));z-index:5}
+.vtot{display:flex;justify-content:space-between;align-items:baseline;font-weight:800}
+.vtot span{font-size:18px;color:var(--mut)}.vtot b{font-size:34px;letter-spacing:-1px}
+.vcnt{color:var(--mut);font-size:14px;margin-top:-6px}
+.vclear{background:none;border:0;color:var(--mut);font-weight:700;font-size:14px}
+@media (max-width:899px){.vpills{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.vpills button{flex:none}.vwrap{padding-bottom:190px}.vsearch .in{font-size:18px}}
+@media (min-width:900px){
+  .vwrap{grid-template-columns:minmax(0,1fr) 340px;align-items:start;max-width:1200px}
+  .vside{position:sticky;top:76px;bottom:auto}
+}
 </style>
 </head>
 <body>
@@ -727,10 +758,13 @@ VIEWS.vender={
  html(){
   const c=openCaja();
   return `${!c?`<div class="banner">${ic('wallet')}<div>La caja está cerrada. Ábrela para poder cobrar.</div><button class="btn sm acc" data-act="open-caja">Abrir caja</button></div>`:''}
-  <div class="vgrid">
-   <div id="vsearch" class="searchbar"><div class="grow" style="position:relative"><input id="vq" class="in" placeholder="Escanea o busca un producto" autocomplete="off" enterkeyhint="search"></div><button class="btn soft icon" data-act="scan-sale" aria-label="Escanear con cámara">${ic('scan')}</button></div>
-   <div id="vcart"></div>
-   <div id="vres"></div>
+  <div class="vwrap">
+   <div class="vmain">
+    <div class="vsearch"><input id="vq" class="in" placeholder="Escanea o escribe el producto" autocomplete="off" enterkeyhint="search"><button class="btn pri icon" data-act="scan-sale" aria-label="Escanear con cámara">${ic('scan')}</button></div>
+    <div id="vres"></div>
+    <div id="vlines"></div>
+   </div>
+   <div class="vside" id="vcart"></div>
   </div>`;
  },
  after(){renderCart();renderRes();const q=$('#vq');q.addEventListener('input',renderRes);q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();enterSale(q.value.trim())}});if(innerWidth>=900)q.focus()}
@@ -738,29 +772,39 @@ VIEWS.vender={
 let vcat='';
 function renderRes(){
   const el=$('#vres');if(!el)return;
-  const q=($('#vq')||{}).value||'';
-  const present=[...new Set(S.products.map(p=>p.cat).filter(Boolean))];
-  if(vcat&&!present.includes(vcat))vcat='';
-  let r=findProducts(q,vcat?400:48);
-  if(vcat)r=r.filter(p=>p.cat===vcat).slice(0,60);
-  const chips=present.length?`<div class="chips vchips"><button data-act="vcat" data-c="" class="${vcat?'':'on'}">Todos</button>${present.map(c=>`<button data-act="vcat" data-c="${esc(c)}" class="${vcat===c?'on':''}">${esc(c)}</button>`).join('')}</div>`:'';
+  const q=(($('#vq')||{}).value||'').trim();
   if(!S.products.length){el.innerHTML=`<div class="empty"><div class="big">📦</div><b>Aún no tienes productos</b>Crea el primero para empezar a vender.<div class="mt"><button class="btn pri" data-act="new-product">Crear producto</button></div></div>`;return}
-  if(!r.length){el.innerHTML=`<div class="empty"><b>No encontré “${esc(q)}”</b>Revisa el nombre o créalo ahora.<div class="mt"><button class="btn pri" data-act="new-product" data-code="${esc(/^\d{5,}$/.test(q)?q:'')}" data-name="${esc(/^\d{5,}$/.test(q)?'':q)}">Crear producto</button></div></div>`;return}
-  el.innerHTML=`${chips}<div class="mut sm mb">${q?'Resultados':(vcat||'Más vendidos')}</div><div class="pgrid">${r.map(p=>`<button class="pcard ${p.stock<=0?'out':''}" data-act="add-cart" data-id="${p.id}"><span class="n">${esc(p.name)}</span><span class="st">${p.stock<=0?'Agotado':'Quedan '+qfmt(p.stock)}</span><span class="p">${money(p.price)}</span></button>`).join('')}</div>`;
+  if(!q){
+    const top=S.products.filter(p=>p.stock>0).slice().sort((a,b)=>(b.sold||0)-(a.sold||0)).slice(0,6);
+    el.innerHTML=`<div class="vpills">${top.map(p=>`<button data-act="add-cart" data-id="${p.id}">${esc(p.name)}</button>`).join('')}<button class="all" data-act="catalog">${ic('list','sm')} Ver todos</button></div>`;return}
+  const r=findProducts(q,6,true);
+  if(!r.length){el.innerHTML=`<div class="panel center mut"><b style="color:var(--ink)">No encontré “${esc(q)}”</b><div class="mt"><button class="btn pri" data-act="new-product" data-code="${esc(/^\d{5,}$/.test(q)?q:'')}" data-name="${esc(/^\d{5,}$/.test(q)?'':q)}">Crear este producto</button></div></div>`;return}
+  el.innerHTML=`<div class="vsug">${r.map(p=>`<button data-act="add-cart" data-id="${p.id}" ${p.stock<=0?'class="out"':''}><span class="n">${esc(p.name)}</span><span class="p">${p.stock<=0?'Agotado':money(p.price)}</span></button>`).join('')}</div>`;
 }
-function findProducts(q,limit=40){
+function catalog(){
+  const cats=[...new Set(S.products.map(p=>p.cat).filter(Boolean))];let cur='';
+  const ov=modal('Todos los productos',`<input class="in" id="cq" placeholder="Buscar" autocomplete="off"><div class="chips mt" id="cch"></div><div id="cbody" class="mt"></div><button class="btn pri big mt" data-act="close">Listo</button>`,{wide:true});
+  const draw=()=>{const q=norm($('#cq',ov).value.trim());
+    $('#cch',ov).innerHTML=cats.length?`<button data-c="" class="${cur?'':'on'}">Todos</button>${cats.map(c=>`<button data-c="${esc(c)}" class="${cur===c?'on':''}">${esc(c)}</button>`).join('')}`:'';
+    const r=S.products.filter(p=>(!cur||p.cat===cur)&&(!q||norm(p.name).includes(q))).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,120);
+    $('#cbody',ov).innerHTML=r.length?`<div class="pgrid">${r.map(p=>`<button class="pcard ${p.stock<=0?'out':''}" data-act="add-cart" data-id="${p.id}"><span class="n">${esc(p.name)}</span><span class="st">${p.stock<=0?'Agotado':'Quedan '+qfmt(p.stock)}</span><span class="p">${money(p.price)}</span></button>`).join('')}</div>`:'<div class="empty"><b>Sin resultados</b></div>'};
+  $('#cq',ov).addEventListener('input',draw);
+  $('#cch',ov).addEventListener('click',e=>{const b=e.target.closest('button[data-c]');if(b){cur=b.dataset.c;draw()}});
+  draw();
+}
+function findProducts(q,limit=40,nameOnly=false){
   q=norm(q.trim());
   if(!q)return S.products.slice().sort((a,b)=>(b.sold||0)-(a.sold||0)||a.name.localeCompare(b.name)).slice(0,limit);
   const exact=S.products.filter(p=>p.barcode&&p.barcode===q);
   if(exact.length)return exact;
-  return S.products.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q)||norm(p.cat).includes(q)).slice(0,limit);
+  return S.products.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q)||(!nameOnly&&norm(p.cat).includes(q))).slice(0,limit);
 }
 function enterSale(v){
   if(!v)return;
   const exact=S.products.find(p=>p.barcode===v);
   if(exact){addCart(exact.id);$('#vq').value='';renderRes();return}
-  const r=findProducts(v,2);
-  if(r.length===1){addCart(r[0].id);$('#vq').value='';renderRes();return}
+  const r=findProducts(v,2,true);
+  if(r.length>=1){addCart(r[0].id);$('#vq').value='';renderRes();return}
   if(!r.length){
     if(/^\d{5,}$/.test(v)){toast(`Código ${v} no existe. Créalo ahora.`,'warn');productForm(null,{barcode:v,addToCart:true})}
     else toast('No encontré ese producto','warn');
@@ -775,14 +819,15 @@ function addCart(id,fromScan){
 }
 const cartTotal=()=>sum(cart,l=>l.price*l.qty);
 function renderCart(){
-  const el=$('#vcart');if(!el)return;
-  if(!cart.length){el.innerHTML=`<div class="panel center mut" style="padding:22px">${ic('cart','lg')}<div class="b mt" style="color:var(--ink)">Venta vacía</div><div class="sm">Escanea o toca un producto para agregarlo.</div><div class="total" style="text-align:left"><span>Total</span><span>${money(0)}</span></div><button class="btn pri big" disabled>Cobrar<span class="kbd">F2</span></button></div>`;return}
-  el.innerHTML=`<div class="panel"><div class="row between"><h3 style="margin:0">Venta actual</h3><button class="btn sm" data-act="clear-cart">Vaciar<span class="kbd">Esc</span></button></div>
-   <div class="mt">${cart.map((l,i)=>`<div class="cline"><div class="grow"><div class="b" style="font-size:14.5px">${esc(l.name)}</div><div class="mut xs">${money(l.price)} c/u</div></div>
-     <div class="qty"><button data-act="qty" data-i="${i}" data-d="-1">−</button><input value="${qfmt(l.qty)}" inputmode="decimal" data-qty="${i}" aria-label="Cantidad"><button data-act="qty" data-i="${i}" data-d="1">+</button></div>
-     <div class="b right" style="min-width:78px">${money(l.price*l.qty)}</div></div>`).join('')}</div>
-   <div class="total"><span>Total</span><span>${money(cartTotal())}</span></div>
-   <button class="btn pri big" data-act="cobrar">Cobrar<span class="kbd">F2</span></button></div>`;
+  const side=$('#vcart'),lines=$('#vlines');if(!side)return;
+  const n=cart.length,t=cartTotal();
+  side.innerHTML=`<div class="vtot"><span>Total</span><b>${money(t)}</b></div>${n?`<div class="vcnt">${qfmt(sum(cart,l=>l.qty))} ${sum(cart,l=>l.qty)===1?'producto':'productos'}</div>`:''}
+   <button class="btn pri big" data-act="cobrar" ${n?'':'disabled'}>Cobrar<span class="kbd">F2</span></button>${n?`<button class="btn vclear" data-act="clear-cart">Vaciar venta</button>`:''}`;
+  if(!lines)return;
+  if(!n){lines.innerHTML=`<div class="vempty">${ic('scan','lg')}<b>Escanea un producto</b><span>El código de barras o su nombre. Aquí aparece la cuenta.</span></div>`;return}
+  lines.innerHTML=`<div class="vlines">${cart.slice().reverse().map(l=>{const i=cart.indexOf(l);return `<div class="vl"><div class="grow"><div class="n">${esc(l.name)}</div><div class="mut xs">${money(l.price)} c/u</div></div>
+    <div class="qty"><button data-act="qty" data-i="${i}" data-d="-1" aria-label="Quitar uno">−</button><input value="${qfmt(l.qty)}" inputmode="decimal" data-qty="${i}" aria-label="Cantidad"><button data-act="qty" data-i="${i}" data-d="1" aria-label="Agregar uno">+</button></div>
+    <div class="b right" style="min-width:86px;font-size:17px">${money(l.price*l.qty)}</div></div>`}).join('')}</div>`;
 }
 
 /* cobro */
@@ -1280,7 +1325,7 @@ document.addEventListener('click',async e=>{
    'scan-field'(){scanner(c=>{const i=$('#pbc');if(i){i.value=c;const p=S.products.find(x=>x.barcode===c);toast(p?`Ya existe: ${p.name}`:'Código leído',p?'warn':'ok')}},false)},
    'scan-buy'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p)addPurchaseLine(p.id);else{closeModal();productForm(null,{barcode:c,buy:true})}},true)},
    'gen-code'(){const i=$('#pbc');S.counters.code++;i.value='CUA'+String(S.counters.code).padStart(6,'0');save()},
-   'add-cart'(){addCart(d.id)},
+   'add-cart'(){addCart(d.id);const q=$('#vq');if(q&&q.value){q.value='';renderRes()}if(q&&!$('.ovl')&&innerWidth>=900)q.focus()},
    'clear-cart'(){cart=[];renderCart()},
    lock(){sessSet(false);gate()},
    'pin-off'(){S.meta.pin='';save();toast('PIN quitado','ok');render()},
@@ -1295,6 +1340,7 @@ document.addEventListener('click',async e=>{
    'wa-sale'(){const s=S.sales.find(x=>x.id===d.id);window.open(waLink((cust(s.customerId)||{}).phone||'',saleText(s)),'_blank')},
    'new-product'(){productForm(null,{barcode:d.code||'',name:d.name||'',buy:!!d.buy})},
    'edit-product'(){productForm(d.id)},
+   catalog(){catalog()},
    'adj-stock'(){adjustForm(d.id)},
    invf(){invF=d.f;render()},
    'del-product'(){ask('Eliminar producto','Se borra del inventario. Las ventas pasadas se conservan.','Eliminar',true).then(ok=>{if(ok){S.products=S.products.filter(p=>p.id!==d.id);save();closeModal();toast('Producto eliminado');render()}})},

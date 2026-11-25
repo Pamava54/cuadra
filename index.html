@@ -213,6 +213,7 @@ table.t td.r,table.t th.r{text-align:right}
 .ovl{position:fixed;inset:0;background:rgba(15,20,45,.5);z-index:100;display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;animation:up .18s ease-out}
 .sheet.wide{max-width:760px}
+.ovl.top{align-items:flex-start;padding:max(10px,env(safe-area-inset-top)) 10px 0}.ovl.top .sheet{border-radius:20px;max-height:calc(100dvh - 20px)}
 @keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
 .sh-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
 .sh-h h3{font-size:18px;font-weight:800}
@@ -620,7 +621,7 @@ function toast(m,t=''){
   setTimeout(()=>e.remove(),t==='bad'||t==='warn'?4200:2200);
 }
 function modal(title,body,o={}){
-  const ov=document.createElement('div');ov.className='ovl';
+  const ov=document.createElement('div');ov.className='ovl'+(o.top?' top':'');
   ov.innerHTML=`<div class="sheet ${o.wide?'wide':''}" role="dialog" aria-modal="true"><div class="sh-h"><h3>${title}</h3><button class="x" data-act="close" aria-label="Cerrar">×</button></div><div class="sh-b">${body}</div></div>`;
   ov._close=o.onClose;
   ov.addEventListener('mousedown',e=>{if(e.target===ov)closeModal(ov)});
@@ -1201,7 +1202,7 @@ function saleAsk(id,cam){
    <div class="b" style="font-size:18px">${esc(p.name)}</div>
    <div class="mut sm" style="margin:2px 0 12px">${p.brand?esc(p.brand)+' · ':''}${money(p.price)} c/u · hay ${qfmt(p.stock)}${l?` · ya llevas ${qfmt(l.qty)}`:''}</div>
    <div class="fg"><label class="f">Unidades</label><input class="in" name="qty" value="1" inputmode="decimal" required autofocus style="font-size:26px;font-weight:800;text-align:center;min-height:58px"></div>
-   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la venta'}</button></form>`);
+   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la venta'}</button></form>`,{top:true});
 }
 function addCartQty(id,q){
   const p=prod(id);if(!p)return;
@@ -1226,7 +1227,7 @@ function weighForm(id,cam){
    <div class="g2"><div class="fg"><label class="f">Peso (gramos)</label><input class="in" name="wg" inputmode="numeric" placeholder="Ej: 350" autofocus></div>
    <div class="fg"><label class="f">o valor ($)</label><input class="in money" name="wv" inputmode="numeric" placeholder="Ej: 5000"></div></div>
    <div class="total" style="font-size:20px"><span class="mut" style="font-size:14px">Cobrar</span><span id="wtot">${money(0)}</span></div>
-   <button class="btn pri big">Agregar a la venta</button></form>`);
+   <button class="btn pri big">Agregar a la venta</button></form>`,{top:true});
 }
 document.addEventListener('input',e=>{
   const f=e.target.closest&&e.target.closest('form[data-form=weigh]');if(!f)return;const p=prod(f.dataset.id);
@@ -1747,7 +1748,7 @@ function buyAsk(id,cam){
    <div class="mut sm" style="margin:2px 0 12px">${p.brand?esc(p.brand)+' · ':''}Stock actual: ${qfmt(p.stock)}${l?` · ya llevas ${qfmt(l.qty)} en esta compra`:''}</div>
    <div class="g2"><div class="fg"><label class="f">Unidades que llegaron</label><input class="in" name="qty" inputmode="decimal" required autofocus placeholder="Ej: 24" style="font-size:24px;font-weight:800;text-align:center;min-height:56px"></div>
    <div class="fg"><label class="f">Costo unitario</label><input class="in money" name="cost" inputmode="numeric" value="${c0?fmtInt(c0):''}" placeholder="0" style="min-height:56px"></div></div>
-   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la compra'}</button></form>`);
+   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la compra'}</button></form>`,{top:true});
 }
 function addPurchaseLine(id){
   const p=prod(id);if(!p)return;const l=pd.items.find(x=>x.pid===id);

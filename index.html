@@ -962,7 +962,7 @@ function remindList(){
 }
 
 /* IMPORTAR PRODUCTOS */
-const IMPH={name:['nombre','producto','descripcion','articulo','nombre del producto'],barcode:['codigo','codigo de barras','barras','ean','cod'],cost:['costo','precio de compra','compra','precio compra'],price:['precio','precio de venta','venta','precio venta','pvp'],stock:['stock','cantidad','existencias','inventario','unidades'],min:['minimo','stock minimo'],cat:['categoria']};
+const IMPH={name:['nombre','producto','descripcion','articulo','nombre del producto'],barcode:['codigo','codigo de barras','barras','ean','cod'],cost:['costo','precio de compra','compra','precio compra'],price:['precio','precio de venta','venta','precio venta','pvp'],stock:['stock','cantidad','existencias','inventario','unidades'],min:['minimo','stock minimo'],cat:['categoria'],bulk:['por peso','peso','granel','se vende por peso','peso variable'],iva:['iva'],net:['contenido','contenido neto'],unit:['unidad','unidad de medida'],exp:['vence','vencimiento','fecha de vencimiento']};
 let imp=null;
 function csvRows(text){
   text=text.replace(/^﻿/,'');const first=text.split(/\r?\n/)[0]||'',del=[';','\t',','].map(d=>[d,first.split(d).length]).sort((a,b)=>b[1]-a[1])[0][0];
@@ -994,8 +994,10 @@ function impMap(rows){
   for(let i=0;i<Math.min(rows.length,6)&&hi<0;i++){const m={};rows[i].forEach((c,j)=>{const t=norm(String(c).trim());for(const k in IMPH)if(m[k]===undefined&&IMPH[k].includes(t))m[k]=j});if(m.name!==undefined){hi=i;map=m}}
   if(hi<0){map={name:0,barcode:1,cost:2,price:3,stock:4,min:5,cat:6};hi=-1}
   const g=(r,k)=>map[k]===undefined?'':r[map[k]];
-  return rows.slice(hi+1).map(r=>({name:String(g(r,'name')||'').trim(),barcode:String(g(r,'barcode')||'').replace(/\s/g,''),cost:impNum(g(r,'cost')),price:impNum(g(r,'price')),stock:typeof g(r,'stock')==='number'?g(r,'stock'):dec(g(r,'stock')),hasStock:map.stock!==undefined&&String(g(r,'stock')).trim()!=='',min:dec(g(r,'min')),cat:String(g(r,'cat')||'').trim()})).filter(x=>x.name);
+  return rows.slice(hi+1).map(r=>({name:String(g(r,'name')||'').trim(),barcode:String(g(r,'barcode')||'').replace(/\s/g,''),cost:impNum(g(r,'cost')),price:impNum(g(r,'price')),stock:typeof g(r,'stock')==='number'?g(r,'stock'):dec(g(r,'stock')),hasStock:map.stock!==undefined&&String(g(r,'stock')).trim()!=='',min:dec(g(r,'min')),cat:String(g(r,'cat')||'').trim(),bulk:/^(s|si|sí|x|1|true|yes)$/.test(norm(String(g(r,'bulk')).trim())),hasIva:map.iva!==undefined&&String(g(r,'iva')).trim()!=='',iva:impNum(g(r,'iva')),net:typeof g(r,'net')==='number'?g(r,'net'):dec(g(r,'net')),unit:IMPU[norm(String(g(r,'unit')).trim())]||'',exp:impDate(g(r,'exp'))})).filter(x=>x.name);
 }
+const IMPU={g:'g',gr:'g',gramo:'g',gramos:'g',kg:'kg',kilo:'kg',kilos:'kg',kilogramo:'kg',kilogramos:'kg',ml:'ml',mililitro:'ml',mililitros:'ml',l:'l',lt:'l',litro:'l',litros:'l',m:'m',metro:'m',metros:'m',cm:'cm',und:'und',unidad:'und',unidades:'und'};
+function impDate(v){if(typeof v==='number'&&v>20000)return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);const t=String(v||'').trim();let m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;m=t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''}
 function impCalc(items){
   const m=+S.meta.defMargin||0;let nw=0,up=0,skip=0;
   items.forEach(it=>{if(!it.price&&it.cost&&m>0&&m<100)it.price=roundUp(it.cost/(1-m/100));
@@ -1021,8 +1023,8 @@ function impLoad(rows){const items=impMap(rows);if(!items.length){toast('No enco
 function impApply(){
   const upStock=$('#impstock')&&$('#impstock').checked;let nw=0,up=0;
   imp.items.forEach(it=>{
-    if(it.ex){const p=it.ex;if(it.price)p.price=it.price;if(it.cost)p.cost=it.cost;if(it.cat)p.cat=it.cat;if(it.min)p.min=it.min;if(upStock&&it.hasStock)p.stock=it.stock;up++}
-    else if(!it.skip){S.products.push({id:uid(),name:it.name,barcode:it.barcode,cat:it.cat,cost:it.cost,price:it.price,stock:it.hasStock?it.stock:0,min:it.min||3,sold:0,img:'',fav:false});nw++}});
+    if(it.ex){const p=it.ex;if(it.price)p.price=it.price;if(it.cost)p.cost=it.cost;if(it.cat)p.cat=it.cat;if(it.min)p.min=it.min;if(upStock&&it.hasStock)p.stock=it.stock;if(it.bulk)p.bulk=true;if(it.hasIva)p.iva=it.iva;if(it.net&&it.unit){p.net=it.net;p.unit=it.unit}if(it.exp)p.exp=it.exp;up++}
+    else if(!it.skip){S.products.push({id:uid(),name:it.name,barcode:it.barcode,cat:it.cat,cost:it.cost,price:it.price,stock:it.hasStock?it.stock:0,min:it.min||3,sold:0,img:'',fav:false,bulk:it.bulk,iva:it.hasIva?it.iva:0,net:(it.net&&it.unit)?it.net:0,unit:(it.net&&it.unit)?it.unit:'',exp:it.exp||''});nw++}});
   save();imp=null;closeModal();toast(`${nw} nuevos, ${up} actualizados`,'ok');render();
 }
 
@@ -2073,7 +2075,7 @@ document.addEventListener('click',async e=>{
    'remind-all'(){remindList()},
    'remind-one'(){const c=cust(d.id);(S.meta.remind=S.meta.remind||{})[c.id]=Date.now();save();window.open(waLink(c.phone,remindText(c)),'_blank');remindList()},
    'imp-open'(){imp=null;modal('Importar productos','<div id="impb"></div>');impDraw()},
-   'imp-tpl'(){dl('\uFEFFNombre;Código de barras;Costo;Precio de venta;Stock;Stock mínimo;Categoría\r\nArroz 500 g;7701234567890;2000;2500;24;5;Granos\r\nAceite 1 L;7701234567906;7500;9800;12;3;Aceites\r\n','plantilla_productos_cuadra.csv','text/csv;charset=utf-8')},
+   'imp-tpl'(){dl('\uFEFFNombre;Código de barras;Costo;Precio de venta;Stock;Stock mínimo;Categoría;Por peso;IVA;Contenido;Unidad;Vence\r\nArroz 500 g;7701234567890;2000;2500;24;5;Granos;;0;500;g;\r\nQueso campesino (kg);7701234567906;14000;21000;10;2;Lácteos;Sí;0;;;2027-01-31\r\n','plantilla_productos_cuadra.csv','text/csv;charset=utf-8')},
    'imp-paste'(){const t=$('#imptext').value;if(!t.trim())return toast('Pega las filas primero','warn');impLoad(csvRows(t))},
    'imp-ok'(){impApply()},
    'imp-back'(){imp=null;impDraw()},

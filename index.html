@@ -375,7 +375,7 @@ const money=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',ma
 const digits=v=>parseInt(String(v||'').replace(/[^\d]/g,''),10)||0;
 const dec=v=>{const n=parseFloat(String(v||'').replace(',','.'));return isFinite(n)?n:0};
 const fmtInt=n=>String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-const qfmt=n=>Number.isInteger(n)?String(n):String(Math.round(n*100)/100).replace('.',',');
+const qfmt=n=>Number.isInteger(n)?String(n):String(Math.round(n*1000)/1000).replace('.',',');
 const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const DAY=864e5;
@@ -557,6 +557,9 @@ function insights(){
   const bajo=S.products.filter(p=>p.stock>0&&p.stock<=p.min).length;
   if(agot)out.push({t:'bad',x:`${agot} ${plural(agot,'producto agotado','productos agotados')}. Revisa qué toca reponer.`,go:'productos?f=agotado',l:'Ver'});
   if(bajo)out.push({t:'warn',x:`${bajo} ${plural(bajo,'producto está','productos están')} por acabarse.`,go:'productos?f=bajo',l:'Ver'});
+  const venc=S.products.filter(p=>{const x=expDays(p);return x!==null&&x<0&&p.stock>0}).length,pven=S.products.filter(p=>{const x=expDays(p);return x!==null&&x>=0&&x<=7&&p.stock>0}).length;
+  if(venc)out.push({t:'bad',x:`${venc} ${plural(venc,'producto vencido','productos vencidos')} con existencias. Sácalos de la venta.`,go:'productos?f=vence',l:'Ver'});
+  if(pven)out.push({t:'warn',x:`${pven} ${plural(pven,'producto vence','productos vencen')} en los próximos 7 días.`,go:'productos?f=vence',l:'Ver'});
   const deud=S.customers.map(c=>({c,b:custBalance(c.id)})).filter(x=>x.b>0).sort((a,b)=>b.b-a.b);
   if(deud.length){
     const top=deud[0];
@@ -845,7 +848,7 @@ function hlist(){
   if(!r.length){el.innerHTML='<div class="empty"><div class="big">🧾</div><b>Sin ventas aquí</b>Prueba con otro período o número.</div>';return}
   const ok=r.filter(x=>!x.void&&x.method!=='autoconsumo');
   const M={efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio'};
-  el.innerHTML=`<div class="mut sm" style="padding:2px 4px 8px">${ok.length} ${ok.length===1?'venta':'ventas'} · ${money(sum(ok,x=>x.total))}</div>`+r.map(x=>`<button class="item" data-act="sale-detail" data-id="${x.id}"><div class="avatar">${ic('cart','sm')}</div><div class="grow"><div class="t" style="${x.void?'text-decoration:line-through;opacity:.6':''}">Venta #${x.no}${x.void?' · Anulada':''}</div><div class="s">${fmtDT(x.ts)}${x.customerId&&cust(x.customerId)?' · '+esc(cust(x.customerId).name):''}</div></div><div class="right"><div class="b">${money(x.total)}</div><span class="badge ${x.method==='fiado'?'low':'gray'}">${M[x.method]}</span></div></button>`).join('');
+  el.innerHTML=`<div class="mut sm" style="padding:2px 4px 8px">${ok.length} ${ok.length===1?'venta':'ventas'} · ${money(sum(ok,x=>x.total))}</div>`+r.map(x=>`<button class="item" data-act="sale-detail" data-id="${x.id}"><div class="avatar">${ic('cart','sm')}</div><div class="grow"><div class="t" style="${x.void?'text-decoration:line-through;opacity:.6':''}">${x.ret?'Devolución #'+x.no+' (de la #'+x.ofNo+')':'Venta #'+x.no}${x.void?' · Anulada':''}</div><div class="s">${fmtDT(x.ts)}${x.customerId&&cust(x.customerId)?' · '+esc(cust(x.customerId).name):''}</div></div><div class="right"><div class="b">${money(x.total)}</div><span class="badge ${x.method==='fiado'?'low':'gray'}">${M[x.method]}</span></div></button>`).join('');
 }
 
 
@@ -904,6 +907,28 @@ function labRender(){
   const el=$('#lsel');if(el)el.innerHTML=ids.length?ids.map(id=>{const p=prod(id),bad=!p.barcode?'Sin código de barras':(!/^\d+$/.test(p.barcode)?'Código no estándar':(!validEAN(p.barcode)&&[8,12,13].includes(p.barcode.length)?'Dígito de control no válido':''));
    return `<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${money(p.price)}${bad?` · <span class="bad">${bad}</span>`:''}</div>${bad?`<button class="btn sm soft mt" data-act="lab-gen" data-id="${id}">Crear código EAN propio</button>`:''}</div><div class="row" style="gap:6px"><button class="btn sm icon" data-act="lab-qty" data-id="${id}" data-d="-1">−</button><b style="min-width:26px;text-align:center">${lab.sel[id]}</b><button class="btn sm icon" data-act="lab-qty" data-id="${id}" data-d="1">+</button></div></div>`}).join(''):'<div class="empty">Busca y agrega productos arriba</div>';
   const pv=$('#lpv');if(pv)pv.innerHTML=labAll()||'<div class="mut sm">Aquí verás las etiquetas</div>';
+}
+
+
+/* DEVOLUCIONES */
+let rt=null;
+function retLeft(s,i){return Math.round((i.qty-((s.rtn||{})[i.pid]||0))*1000)/1000}
+function returnForm(id){const s=S.sales.find(x=>x.id===id);rt={id,q:s.items.map(()=>0),back:true,m:s.method};if(!$('#retb'))modal('Devolver productos','<div id="retb"></div>');retDraw()}
+function retCalc(){const s=S.sales.find(x=>x.id===rt.id),f=s.subtotal>0?(s.subtotal-(s.discount||0))/s.subtotal:1;let raw=0;s.items.forEach((i,k)=>raw+=i.price*rt.q[k]);return Math.round(raw*f)}
+function retDraw(){
+  const s=S.sales.find(x=>x.id===rt.id),el=$('#retb');if(!el)return;const ref=retCalc();
+  el.innerHTML=`<p class="mut sm" style="margin:0 0 8px">Venta #${s.no} · marca lo que te devuelven.</p><div class="list">${s.items.map((i,k)=>{const left=retLeft(s,i);return `<div class="item" style="cursor:default;${left<=0?'opacity:.45':''}"><div class="grow"><div class="t">${esc(i.name)}</div><div class="s">${qfmt(left)}${i.bulk?' kg':''} disponibles · ${money(i.price)}</div></div>${left>0?`<div class="qty"><button data-act="ret-qty" data-k="${k}" data-d="-1">−</button><input value="${qfmt(rt.q[k])}" readonly><button data-act="ret-qty" data-k="${k}" data-d="1">+</button></div>`:'<span class="mut xs">ya devuelto</span>'}</div>`}).join('')}</div>
+   <label class="favchk mt"><input type="checkbox" id="retback" ${rt.back?'checked':''} data-act="ret-back"> <span>Los productos vuelven al inventario</span></label>
+   ${s.method==='efectivo'||s.method==='digital'?`<div class="fg mt"><label class="f">¿Cómo le devuelves el dinero?</label><div class="pm"><button type="button" class="${rt.m==='efectivo'?'on':''}" data-act="ret-m" data-v="efectivo">Efectivo<small>Sale de la caja</small></button><button type="button" class="${rt.m==='digital'?'on':''}" data-act="ret-m" data-v="digital">Transferencia<small>No toca la caja</small></button></div></div>`:s.method==='fiado'?'<div class="tip mt">Se descuenta de lo que debe el cliente.</div>':'<div class="tip mt">Es consumo propio: solo vuelve al inventario.</div>'}
+   <div class="total"><span>A devolver</span><span>${money(ref)}</span></div><button class="btn pri big" data-act="ret-ok" ${ref>0?'':'disabled'}>Registrar devolución</button>`;
+}
+function saveReturn(){
+  const s=S.sales.find(x=>x.id===rt.id),items=[];s.items.forEach((i,k)=>{if(rt.q[k]>0)items.push({pid:i.pid,name:i.name,qty:-rt.q[k],price:i.price,cost:i.cost,bulk:i.bulk})});
+  if(!items.length)return;const ref=retCalc(),m=rt.m,back=rt.back;
+  ensureCaja().then(()=>{const caja=openCaja();if(!caja)return;
+    const r={id:uid(),no:++S.counters.sale,ts:Date.now(),items,total:-ref,cost:sum(items,i=>i.cost*i.qty),method:m,customerId:s.customerId||'',received:0,change:0,cajaId:caja.id,subtotal:-ref,discount:0,delivery:0,ret:true,ofNo:s.no,ofId:s.id};
+    s.rtn=s.rtn||{};items.forEach(i=>{s.rtn[i.pid]=Math.round(((s.rtn[i.pid]||0)-i.qty)*1000)/1000;const p=prod(i.pid);if(p){if(back)p.stock=Math.round((p.stock-i.qty)*1000)/1000;p.sold=Math.max(0,Math.round(((p.sold||0)+i.qty)*1000)/1000)}});
+    S.sales.push(r);save();closeModal();toast('Devolución registrada','ok');render()}).catch(()=>{});
 }
 
 /* INVENTARIO */
@@ -1003,12 +1028,28 @@ function enterSale(v){
 function addCart(id,fromScan){
   const p=prod(id);if(!p)return;
   const l=cart.find(x=>x.pid===id);
+  if(p.bulk){weighForm(id);return}
   if(l)l.qty+=1;else cart.push({pid:id,name:p.name,price:p.price,cost:p.cost,qty:1});
   renderCart();
-  toast(`${p.name} · ${money(p.price)}`,'ok');
+  toast(`${p.name} · ${money(prodPrice(p,(l?l.qty:1)))}`,'ok');
 }
+const expDays=p=>p.exp?Math.floor((new Date(p.exp+'T23:59:59')-Date.now())/DAY):null;
+const prodPrice=(p,q)=>(p.ws&&p.ws.min>0&&p.ws.price>0&&q>=p.ws.min)?p.ws.price:p.price;
+function weighForm(id){
+  const p=prod(id);
+  modal('Pesar · '+p.name,`<form data-form="weigh" data-id="${id}"><div class="mut sm" style="margin:-4px 0 10px">${money(p.price)} el kilo</div>
+   <div class="g2"><div class="fg"><label class="f">Peso (gramos)</label><input class="in" name="wg" inputmode="numeric" placeholder="Ej: 350" autofocus></div>
+   <div class="fg"><label class="f">o valor ($)</label><input class="in money" name="wv" inputmode="numeric" placeholder="Ej: 5000"></div></div>
+   <div class="total" style="font-size:20px"><span class="mut" style="font-size:14px">Cobrar</span><span id="wtot">${money(0)}</span></div>
+   <button class="btn pri big">Agregar a la venta</button></form>`);
+}
+document.addEventListener('input',e=>{
+  const f=e.target.closest&&e.target.closest('form[data-form=weigh]');if(!f)return;const p=prod(f.dataset.id);
+  if(e.target.name==='wg'){const g=dec(f.wg.value);f.wv.value=g?fmtInt(Math.round(p.price*g/1000)):''}
+  if(e.target.name==='wv'){const v=digits(f.wv.value);f.wg.value=v?String(Math.round(v/p.price*1000)):''}
+  $('#wtot').textContent=money(digits(f.wv.value))});
 let cartX={cust:'',dk:'$',dv:0,dom:0};
-const cartSub=()=>sum(cart,l=>l.price*l.qty);
+const cartSub=()=>sum(cart,l=>Math.round(l.price*l.qty));
 const cartDisc=()=>{const sb=cartSub();return cartX.dk==='%'?Math.min(sb,Math.round(sb*(cartX.dv||0)/100)):Math.min(sb,cartX.dv||0)};
 const cartTotal=()=>cart.length?cartSub()-cartDisc()+(cartX.dom||0):0;
 const resetCartX=()=>{cartX={cust:'',dk:'$',dv:0,dom:0}};
@@ -1016,6 +1057,7 @@ function clearCart(){cart=[];resetCartX();renderCart()}
 function renderCart(){
   const side=$('#vcart'),lines=$('#vlines');if(!side)return;
   if(!cart.length)resetCartX();
+  cart.forEach(l=>{const p=prod(l.pid);if(!p)return;const w=p.ws&&p.ws.min>0&&p.ws.price>0&&l.qty>=p.ws.min;l.price=w?p.ws.price:p.price;l.mayor=!!w});
   const n=cart.length,t=cartTotal(),sb=cartSub(),dc=cartDisc(),cu=cust(cartX.cust);
   side.innerHTML=`<div class="vopts">
      <button class="${cu?'set':''}" data-act="cart-cust">${ic('users','sm')}<span>${cu?esc(cu.name):'Consumidor final'}</span></button>
@@ -1027,9 +1069,9 @@ function renderCart(){
    ${n?`<div class="vfoot"><button data-act="clear-cart">Vaciar venta<span class="kbd">Esc</span></button><button data-act="pay-go" data-m="autoconsumo">Consumo propio</button></div>`:''}`;
   if(!lines)return;
   if(!n){lines.innerHTML=`<div class="vempty">${ic('scan','lg')}<b>Escanea un producto</b><span>El código de barras o su nombre. Aquí aparece la cuenta.</span></div>`;return}
-  lines.innerHTML=`<div class="vlines">${cart.slice().reverse().map(l=>{const i=cart.indexOf(l);return `<div class="vl">${thumbOf(prod(l.pid))}<div class="grow"><div class="n">${esc(l.name)}</div><div class="mut xs">${money(l.price)} c/u</div></div>
+  lines.innerHTML=`<div class="vlines">${cart.slice().reverse().map(l=>{const i=cart.indexOf(l);return `<div class="vl">${thumbOf(prod(l.pid))}<div class="grow"><div class="n">${esc(l.name)}</div><div class="mut xs">${money(l.price)} ${l.bulk?'el kilo · kg':'c/u'}${l.mayor?' · <b class="ok">precio por mayor</b>':''}</div></div>
     <div class="qty"><button data-act="qty" data-i="${i}" data-d="-1" aria-label="Quitar uno">−</button><input value="${qfmt(l.qty)}" inputmode="decimal" data-qty="${i}" aria-label="Cantidad"><button data-act="qty" data-i="${i}" data-d="1" aria-label="Agregar uno">+</button></div>
-    <div class="b right" style="min-width:86px;font-size:17px">${money(l.price*l.qty)}</div></div>`}).join('')}</div>`;
+    <div class="b right" style="min-width:86px;font-size:17px">${money(Math.round(l.price*l.qty))}</div></div>`}).join('')}</div>`;
 }
 
 
@@ -1098,7 +1140,7 @@ function finishSale(){
   if(pay.m==='efectivo'){received=digits($('#recv').value)||t;if(received<t){toast('El dinero recibido es menor al total','bad');return}change=received-t}
   if(pay.m==='fiado'){const cid=$('#fcust')?$('#fcust').value:pay.cust;if(!cid){toast('Elige a qué cliente le fías','bad');return}pay.cust=cid}
   const caja=openCaja();if(!caja){toast('Abre la caja primero','bad');return}
-  const sale={id:uid(),no:++S.counters.sale,ts:Date.now(),items:cart.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.price,cost:l.cost})),total:t,cost:sum(cart,l=>l.cost*l.qty),method:pay.m,customerId:pay.m==='fiado'?pay.cust:(cartX.cust||''),received,change,cajaId:caja.id,subtotal:cartSub(),discount:cartDisc(),delivery:cartX.dom||0};
+  const sale={id:uid(),no:++S.counters.sale,ts:Date.now(),items:cart.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.price,cost:l.cost,bulk:!!l.bulk})),total:t,cost:sum(cart,l=>l.cost*l.qty),method:pay.m,customerId:pay.m==='fiado'?pay.cust:(cartX.cust||''),received,change,cajaId:caja.id,subtotal:cartSub(),discount:cartDisc(),delivery:cartX.dom||0};
   for(const l of cart){const p=prod(l.pid);if(p){p.stock=Math.round((p.stock-l.qty)*1000)/1000;p.sold=(p.sold||0)+l.qty}}
   S.sales.push(sale);save();
   const neg=sale.items.filter(i=>prod(i.pid)&&prod(i.pid).stock<0).map(i=>i.name);
@@ -1122,13 +1164,13 @@ function logoPick(input){
 }
 function receiptHTML(s){
   return `${bizHead()}<div class="center" style="text-align:center">Recibo #${s.no} · ${fmtDT(s.ts)}</div><hr>
-  ${s.items.map(i=>`<div class="l"><span>${qfmt(i.qty)} x ${esc(i.name)}</span><span>${money(i.price*i.qty)}</span></div>`).join('')}<hr>
+  ${s.items.map(i=>`<div class="l"><span>${qfmt(i.qty)}${i.bulk?' kg':''} x ${esc(i.name)}</span><span>${money(Math.round(i.price*i.qty))}</span></div>`).join('')}<hr>
   ${s.discount||s.delivery?`<div class="l"><span>Subtotal</span><span>${money(s.subtotal)}</span></div>`:''}${s.discount?`<div class="l"><span>Descuento</span><span>− ${money(s.discount)}</span></div>`:''}${s.delivery?`<div class="l"><span>Domicilio</span><span>${money(s.delivery)}</span></div>`:''}<div class="l"><b>TOTAL</b><b>${money(s.total)}</b></div>
   ${s.method==='efectivo'?`<div class="l"><span>Recibido</span><span>${money(s.received)}</span></div><div class="l"><span>Cambio</span><span>${money(s.change)}</span></div>`:''}
   <hr><div style="text-align:center">¡Gracias por su compra!</div>`;
 }
 function saleText(s){
-  return `*${S.meta.business}*${bizLines()?'\n'+bizLines():''}\nRecibo #${s.no} · ${fmtDT(s.ts)}\n\n${s.items.map(i=>`${qfmt(i.qty)} x ${i.name}: ${money(i.price*i.qty)}`).join('\n')}${s.discount?`\nDescuento: − ${money(s.discount)}`:''}${s.delivery?`\nDomicilio: ${money(s.delivery)}`:''}\n\n*Total: ${money(s.total)}*\n¡Gracias por su compra!`;
+  return `*${S.meta.business}*${bizLines()?'\n'+bizLines():''}\nRecibo #${s.no} · ${fmtDT(s.ts)}\n\n${s.items.map(i=>`${qfmt(i.qty)}${i.bulk?' kg':''} x ${i.name}: ${money(Math.round(i.price*i.qty))}`).join('\n')}${s.discount?`\nDescuento: − ${money(s.discount)}`:''}${s.delivery?`\nDomicilio: ${money(s.delivery)}`:''}\n\n*Total: ${money(s.total)}*\n¡Gracias por su compra!`;
 }
 
 /* PRODUCTOS */
@@ -1136,7 +1178,7 @@ VIEWS.productos={
  html(q){
   const f=q.f||'todos';
   return `<div class="searchbar"><input id="pq" class="in" placeholder="Buscar por nombre o código" autocomplete="off"><button class="btn soft icon" data-act="scan-find" aria-label="Escanear">${ic('scan')}</button><button class="btn soft" data-act="go" data-to="etiquetas">${ic('tag','sm')}<span>Etiquetas</span></button><button class="btn pri" data-act="new-product">${ic('plus','sm')}<span>Nuevo</span></button></div>
-  <div class="chips mt" id="pf">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados']].map(x=>`<button data-act="pfilter" data-f="${x[0]}" class="${f===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  <div class="chips mt" id="pf">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados'],['vence','Por vencer']].map(x=>`<button data-act="pfilter" data-f="${x[0]}" class="${f===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
   <div class="panel mt"><div id="plist" class="list"></div></div>`;
  },
  after(q){window._pf=q.f||'todos';plist();$('#pq').addEventListener('input',plist)}
@@ -1147,12 +1189,13 @@ function plist(){
   if(q)r=r.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q)||norm(p.cat).includes(q));
   if(window._pf==='bajo')r=r.filter(p=>p.stock>0&&p.stock<=p.min);
   if(window._pf==='agotado')r=r.filter(p=>p.stock<=0);
-  r.sort((a,b)=>a.name.localeCompare(b.name));
+  if(window._pf==='vence')r=r.filter(p=>{const x=expDays(p);return x!==null&&x<=15}).sort((a,b)=>expDays(a)-expDays(b));
+  if(window._pf!=='vence')r.sort((a,b)=>a.name.localeCompare(b.name));
   if(!S.products.length){el.innerHTML=`<div class="empty"><div class="big">📦</div><b>Crea tu primer producto</b>Escanea el código de barras o escribe el nombre y el precio.<div class="mt"><button class="btn pri" data-act="new-product">Crear producto</button></div></div>`;return}
   if(!r.length){el.innerHTML=`<div class="empty"><b>Sin resultados</b>Prueba con otro nombre o filtro.</div>`;return}
   el.innerHTML=r.slice(0,200).map(p=>{
-    const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Bajo · '+qfmt(p.stock)]:['ok',qfmt(p.stock)+' und'];
-    return `<button class="item" data-act="edit-product" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.barcode||'Sin código')}${p.cat?' · '+esc(p.cat):''}</div></div><div class="right"><div class="b">${money(p.price)}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+    const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Bajo · '+qfmt(p.stock)]:['ok',qfmt(p.stock)+(p.bulk?' kg':' und')],xd=expDays(p),xt=xd===null?'':(xd<0?' · <span class="bad">vencido</span>':xd<=15?` · <span class="warn">vence en ${xd} ${plural(xd,'día','días')}</span>`:'');
+    return `<button class="item" data-act="edit-product" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.barcode||'Sin código')}${p.cat?' · '+esc(p.cat):''}${xt}</div></div><div class="right"><div class="b">${money(p.price)}${p.bulk?'<span class="xs mut"> /kg</span>':''}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
 }
 
 /* ---------- foto del producto ---------- */
@@ -1187,6 +1230,9 @@ function productForm(id,pre={}){
     <div class="fg"><label class="f">Precio de venta</label><input class="in money" name="price" inputmode="numeric" required value="${d.price?fmtInt(d.price):''}" placeholder="0"></div>
     <div class="mut xs" style="margin:-6px 0 8px">Escribe el costo y el margen que quieres ganar, y Cuadra calcula el precio de venta. Ejemplo: costo $20.000 y margen 20% → $20.000 ÷ 0,80 = <b>$25.000</b>. También puedes escribir el precio y verás el margen.</div>
     <div class="mut sm" id="margin" style="margin:0 0 12px;line-height:1.5"></div>
+    <label class="favchk"><input type="checkbox" name="bulk" ${d.bulk?'checked':''}> <span>⚖️ Se vende por peso: el precio de venta es <b>por kilo</b> y el stock va en kilos</span></label>
+    <div class="fg"><label class="f">Precio por mayor <span class="xs">(opcional: precio especial desde cierta cantidad)</span></label><div class="g2"><input class="in" name="wsmin" inputmode="decimal" value="${d.ws&&d.ws.min?qfmt(d.ws.min):''}" placeholder="Desde cuántas"><input class="in money" name="wsprice" inputmode="numeric" value="${d.ws&&d.ws.price?fmtInt(d.ws.price):''}" placeholder="Precio c/u"></div></div>
+    <div class="fg"><label class="f">Fecha de vencimiento <span class="xs">(opcional)</span></label><input class="in" type="date" name="exp" value="${esc(d.exp||'')}"></div>
     <div class="g2"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
     <div class="fg"><label class="f">Avisar cuando queden</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div></div>
     ${(()=>{const L=catsFor(),cur=d.cat||'',custom=!!cur&&!L.includes(cur);
@@ -1213,7 +1259,7 @@ function marginHint(){
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
-  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':''};
+  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':'',bulk:fd.get('bulk')==='on',exp:fd.get('exp')||'',ws:(dec(fd.get('wsmin'))>0&&digits(fd.get('wsprice'))>0)?{min:dec(fd.get('wsmin')),price:digits(fd.get('wsprice'))}:null};
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
   if(o.barcode){const dup=S.products.find(p=>p.barcode===o.barcode&&p.id!==id);if(dup){toast(`Ese código ya es de “${dup.name}”`,'bad');return}}
@@ -1644,7 +1690,7 @@ document.addEventListener('click',async e=>{
    lock(){sessSet(false);gate()},
    'pin-off'(){S.meta.pin='';save();toast('PIN quitado','ok');render()},
    'vcat'(){vcat=d.c||'';renderRes()},
-   qty(){const l=cart[+d.i];l.qty=Math.max(0,Math.round((l.qty+(+d.d))*1000)/1000);if(l.qty<=0)cart.splice(+d.i,1);renderCart()},
+   qty(){const l=cart[+d.i];l.qty=Math.max(0,Math.round((l.qty+(+d.d)*(l.bulk?0.1:1))*1000)/1000);if(l.qty<=0)cart.splice(+d.i,1);renderCart()},
    cobrar(){cobrar()},
    'cart-cust'(){pickCust()},
    'cart-cust-pick'(){const ov=modalEl(),cb=ov&&ov._after;cartX.cust=d.id||'';closeModal();renderCart();if(cb&&d.id)cb()},
@@ -1716,8 +1762,13 @@ document.addEventListener('click',async e=>{
    rtab(){rep.tab=d.t;render()},
    rrng(){rep.rng=d.r;render()},
    csv(){downloadCSV()},
-   'sale-detail'(){const s=S.sales.find(x=>x.id===d.id),c=openCaja(),can=!s.void&&c&&s.cajaId===c.id;
-     modal('Venta #'+s.no,`<p class="mut" style="margin:0 0 8px">${fmtDT(s.ts)} · ${{efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio'}[s.method]}${s.void?' · ANULADA':''}</p><div class="list">${s.items.map(i=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(i.name)}</div><div class="s">${qfmt(i.qty)} × ${money(i.price)}</div></div><b>${money(i.price*i.qty)}</b></div>`).join('')}</div><div class="total"><span>Total</span><span>${money(s.total)}</span></div><div class="g2"><button class="btn" data-act="print-sale" data-id="${s.id}">${ic('print','sm')} Recibo</button><button class="btn danger" data-act="void-sale" data-id="${s.id}" ${can?'':'disabled'}>Anular venta</button></div>${can?'':'<p class="mut xs mt">Solo se pueden anular ventas de la caja abierta.</p>'}`)},
+   'sale-detail'(){const s=S.sales.find(x=>x.id===d.id),c=openCaja(),can=!s.void&&c&&s.cajaId===c.id&&!s.ret&&!s.rtn;
+     modal((s.ret?'Devolución #':'Venta #')+s.no,`<p class="mut" style="margin:0 0 8px">${s.ret?'De la venta #'+s.ofNo+' · ':''}${fmtDT(s.ts)} · ${{efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio'}[s.method]}${s.void?' · ANULADA':''}</p><div class="list">${s.items.map(i=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(i.name)}</div><div class="s">${qfmt(i.qty)}${i.bulk?' kg':''} × ${money(i.price)}</div></div><b>${money(Math.round(i.price*i.qty))}</b></div>`).join('')}</div><div class="total"><span>Total</span><span>${money(s.total)}</span></div>${!s.void&&!s.ret&&s.items.some(i=>retLeft(s,i)>0)?`<button class="btn big mb" data-act="ret-form" data-id="${s.id}">${ic('swap','sm')} Devolver productos</button>`:''}<div class="g2"><button class="btn" data-act="print-sale" data-id="${s.id}">${ic('print','sm')} Recibo</button><button class="btn danger" data-act="void-sale" data-id="${s.id}" ${can?'':'disabled'}>Anular venta</button></div>${can||s.ret?'':'<p class="mut xs mt">Solo se pueden anular ventas de la caja abierta que no tengan devoluciones.</p>'}`)},
+   'ret-form'(){returnForm(d.id)},
+   'ret-qty'(){const s=S.sales.find(x=>x.id===rt.id),i=s.items[+d.k],st=i.bulk?0.1:1;rt.q[+d.k]=Math.max(0,Math.min(retLeft(s,i),Math.round((rt.q[+d.k]+(+d.d)*st)*1000)/1000));retDraw()},
+   'ret-back'(){rt.back=el.checked},
+   'ret-m'(){rt.m=d.v;retDraw()},
+   'ret-ok'(){saveReturn()},
    'void-sale'(){ask('Anular venta','Los productos vuelven al inventario y la venta deja de contar.','Anular',true).then(ok=>{if(!ok)return;const s=S.sales.find(x=>x.id===d.id);s.void=true;s.items.forEach(i=>{const p=prod(i.pid);if(p){p.stock=Math.round((p.stock+i.qty)*1000)/1000;p.sold=Math.max(0,(p.sold||0)-i.qty)}});save();$$('.ovl').forEach(o=>o.remove());toast('Venta anulada');render()})},
    backup(){doBackup()},
    restore(){$('#rfile').click()},
@@ -1741,6 +1792,10 @@ document.addEventListener('submit',e=>{
   if(k==='closecaja')saveClose(f);
   if(k==='disc'){const fd=new FormData(f);cartX.dk=fd.get('dk')==='%'?'%':'$';let v=digits(fd.get('dv'));if(cartX.dk==='%')v=Math.min(100,v);cartX.dv=v;closeModal();renderCart();return}
   if(k==='dom'){cartX.dom=digits(new FormData(f).get('dom'));closeModal();renderCart();return}
+  if(k==='weigh'){const fd=new FormData(f),p=prod(f.dataset.id);let q=0;const g=dec(fd.get('wg')),v=digits(fd.get('wv'));
+    if(g>0)q=g/1000;else if(v>0)q=v/p.price;if(!(q>0))return toast('Escribe el peso o el valor','warn');
+    q=Math.round(q*1000)/1000;const l=cart.find(x=>x.pid===p.id);if(l)l.qty=Math.round((l.qty+q)*1000)/1000;else cart.push({pid:p.id,name:p.name,price:p.price,cost:p.cost,qty:q,bulk:true});
+    closeModal();renderCart();toast(`${p.name} · ${qfmt(q)} kg`,'ok');return}
   if(k==='cat'){const fd=new FormData(f),name=(fd.get('name')||'').trim(),id=f.dataset.id;
     if(!name)return toast('Escribe el nombre','warn');
     if(mcats().some(x=>x.id!==id&&x.kind===fd.get('kind')&&norm(x.name)===norm(name)))return toast('Ya existe esa categoría','warn');

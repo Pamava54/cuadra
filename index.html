@@ -338,14 +338,15 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
 .pbtns{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .pbtns .btn{cursor:pointer}
 
-.vopts{display:flex;gap:6px;flex-wrap:wrap}
-.vopts button{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:8px 11px;font-weight:700;font-size:13.5px;cursor:pointer;color:var(--ink);max-width:100%}
-.vopts button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vopts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.vopts button{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;min-height:58px;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:8px 4px;font-weight:700;font-size:12.5px;line-height:1.15;cursor:pointer;color:var(--ink);max-width:100%}
+.vopts button span{max-width:100%;overflow:hidden;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .vopts button.set{background:var(--acc-l);border-color:var(--acc);color:#9A4F00}
 .vopts button[disabled]{opacity:.45;cursor:not-allowed}
 .vsub{display:flex;justify-content:space-between;color:var(--mut);font-weight:700;font-size:14px;margin-bottom:-4px}
 .vpay{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .vpay button{display:flex;flex-direction:column;align-items:center;gap:4px;border:0;border-radius:16px;padding:14px 6px;font-weight:800;font-size:14px;cursor:pointer;color:#fff}
+.vpay .pc{grid-column:2;background:#64748B;padding:10px 6px;flex-direction:row;justify-content:center;gap:6px;font-size:12.5px;white-space:nowrap}.vpay .pc svg{width:20px;height:20px}
 .vpay .pe{background:var(--ok)}.vpay .pd{background:var(--pri)}.vpay .pf{background:#B7791F}
 .vpay button[disabled]{opacity:.35;cursor:not-allowed}
 .vpay button svg{width:24px;height:24px}
@@ -439,6 +440,7 @@ const IC={
  down:'M12 4v11M7 11l5 5 5-5M5 20h14',
  up:'M12 20V9M7 13l5-5 5 5M5 4h14',
  truck:'M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
+ gift:'M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 110-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 100-5C13 2 12 7 12 7z',
  bulb:'M9 18h6M10 21h4M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0012 3z'
 };
 const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[n]||''}"/></svg>`;
@@ -1251,8 +1253,8 @@ function renderCart(){
      <button class="${cartX.dom?'set':''}" data-act="cart-dom" ${n?'':'disabled'}>${ic('truck','sm')}<span>${cartX.dom?'Domicilio + '+money(cartX.dom):'Domicilio'}</span></button></div>
    ${(dc||cartX.dom)?`<div class="vsub"><span>Subtotal</span><span>${money(sb)}</span></div>`:''}
    <div class="vtot"><span>Total</span><b>${money(t)}</b></div>${n?`<div class="vcnt">${qfmt(sum(cart,l=>l.qty))} ${sum(cart,l=>l.qty)===1?'producto':'productos'}</div>`:''}
-   <div class="vpay"><button class="pe" data-act="pay-go" data-m="efectivo" ${n?'':'disabled'}>${ic('wallet')}<span>Efectivo</span></button><button class="pd" data-act="pay-go" data-m="digital" ${n?'':'disabled'}>${ic('swap')}<span>Transferencia</span></button><button class="pf" data-act="pay-go" data-m="fiado" ${n?'':'disabled'}>${ic('users')}<span>Fiado</span></button></div>
-   ${n?`<div class="vfoot"><button data-act="clear-cart">Vaciar venta<span class="kbd">Esc</span></button><button data-act="pay-go" data-m="autoconsumo">Consumo propio</button></div>`:''}`;
+   <div class="vpay"><button class="pe" data-act="pay-go" data-m="efectivo" ${n?'':'disabled'}>${ic('wallet')}<span>Efectivo</span></button><button class="pd" data-act="pay-go" data-m="digital" ${n?'':'disabled'}>${ic('swap')}<span>Transferencia</span></button><button class="pf" data-act="pay-go" data-m="fiado" ${n?'':'disabled'}>${ic('users')}<span>Fiado</span></button><button class="pc" data-act="pay-go" data-m="autoconsumo" ${n?'':'disabled'}>${ic('gift')}<span>Consumo propio</span></button></div>
+   ${n?`<div class="vfoot"><button data-act="clear-cart">Vaciar venta<span class="kbd">Esc</span></button></div>`:''}`;
   if(!lines)return;
   if(!n){lines.innerHTML=`<div class="vempty">${ic('scan','lg')}<b>Escanea un producto</b><span>El código de barras o su nombre. Aquí aparece la cuenta.</span></div>`;return}
   lines.innerHTML=`<div class="vlines">${cart.slice().reverse().map(l=>{const i=cart.indexOf(l);return `<div class="vl">${thumbOf(prod(l.pid))}<div class="grow"><div class="n">${esc(l.name)}</div><div class="mut xs">${money(l.price)} ${l.bulk?'el kilo · kg':'c/u'}${l.mayor?' · <b class="ok">precio por mayor</b>':''}</div></div>

@@ -450,6 +450,14 @@ html.big body{zoom:1.2}
 .dbox.up{background:#E3EAFF;border-color:#2447D0;color:#1B3BB3}
 .dbox.low{background:#FDE4E4;border-color:#D92D2D;color:#B01E1E}
 .tip button.bigopen{background:var(--pri);color:#fff;font-size:17px;padding:14px 20px;border-radius:14px;box-shadow:0 4px 12px rgba(36,71,208,.35)}
+.scanbox{position:relative;width:100%;height:min(34vh,250px);background:#000;border-radius:14px;overflow:hidden}
+.scanbox video{width:100%;height:100%;object-fit:cover;display:block}
+.reticle{position:absolute;left:12%;right:12%;top:30%;bottom:30%;border:3px solid #fff;border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.5);transition:border-color .15s}
+.reticle.ok{border-color:#22c55e;box-shadow:0 0 0 999px rgba(0,0,0,.5),0 0 18px #22c55e}
+.reticle i{position:absolute;left:6%;right:6%;top:50%;height:2px;background:#ef4444;box-shadow:0 0 8px #ef4444;animation:scl 1.4s ease-in-out infinite alternate}
+@keyframes scl{from{top:18%}to{top:82%}}
+.torch{position:absolute;right:8px;top:8px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.25);font-size:20px;cursor:pointer}
+.torch.on{background:#facc15}
 </style>
 </head>
 <body>
@@ -714,21 +722,49 @@ function ask(title,text,ok='Aceptar',danger=false){
 /* ---------- sonido y cámara ---------- */
 let actx;
 function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.connect(g);g.connect(actx.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.stop(actx.currentTime+.09)}catch(e){}}
+function eanOK(c){
+  if(!/^\d{8}$|^\d{12,13}$/.test(c))return true;
+  let sm=0;const d=c.slice(0,-1).split('').reverse();d.forEach((x,i)=>sm+=(+x)*(i%2===0?3:1));
+  return (10-sm%10)%10===+c.slice(-1);
+}
 async function scanner(onCode,continuous){
   if(!('BarcodeDetector' in window)){toast('Este navegador no lee códigos con cámara. Usa la pistola lectora o escribe el código.','warn');return}
-  let stream,stop=false,last='',lastT=0;
-  const ov=modal('Escanear código',`<video id="cam" playsinline muted></video><p class="mut sm center mt">Apunta al código de barras. ${continuous?'Puedes seguir escaneando.':''}</p><button class="btn big mt" data-act="close">Terminar</button>`,{onClose:()=>{stop=true;stream&&stream.getTracks().forEach(t=>t.stop())}});
+  let stream,stop=false,last='',lastT=0,cand='',hits=0,miss=0,busy=false;
+  const ov=modal('Escanear código',`<div class="scanbox"><video id="cam" playsinline muted></video><div class="reticle" id="ret"><i></i></div><button type="button" class="torch hide" id="torch" aria-label="Linterna">🔦</button></div><p class="mut sm center mt" id="scmsg">Pon el código dentro del recuadro. ${continuous?'Puedes seguir escaneando.':''}</p><button class="btn big mt" data-act="close">Terminar</button>`,{top:true,onClose:()=>{stop=true;stream&&stream.getTracks().forEach(t=>t.stop())}});
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
     const v=$('#cam',ov);v.srcObject=stream;await v.play();
-    const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','qr_code']});
+    const trk=stream.getVideoTracks()[0];
+    try{const cap=trk.getCapabilities?trk.getCapabilities():{};
+      if(cap.focusMode&&cap.focusMode.includes('continuous'))await trk.applyConstraints({advanced:[{focusMode:'continuous'}]});
+      if(cap.torch){const tb=$('#torch',ov);tb.classList.remove('hide');let on=false;tb.onclick=async()=>{on=!on;try{await trk.applyConstraints({advanced:[{torch:on}]});tb.classList.toggle('on',on)}catch(e){}}}}catch(e){}
+    const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39']});
+    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+    const ret=$('#ret',ov),msg=$('#scmsg',ov);
+    const accept=c=>{ret.classList.add('ok');beep();last=c;lastT=Date.now();cand='';hits=0;
+      setTimeout(()=>ret.classList.remove('ok'),400);onCode(c);if(!continuous){closeModal(ov);return true}return false};
     const tick=async()=>{
       if(stop)return;
-      try{const r=await det.detect(v);
-        if(r.length){const c=r[0].rawValue,n=Date.now();
-          if(c!==last||n-lastT>1600){last=c;lastT=n;beep();onCode(c);if(!continuous){closeModal(ov);return}}}
+      if(busy||!v.videoWidth){setTimeout(tick,90);return}
+      busy=true;
+      try{
+        // solo se lee lo que está dentro del recuadro
+        const box=v.getBoundingClientRect(),vw=v.videoWidth,vh=v.videoHeight,sc=Math.max(box.width/vw,box.height/vh);
+        const offX=(vw*sc-box.width)/2,offY=(vh*sc-box.height)/2;
+        const rx=(offX+box.width*.12)/sc,ry=(offY+box.height*.30)/sc,rw=box.width*.76/sc,rh=box.height*.40/sc;
+        cv.width=Math.round(rw);cv.height=Math.round(rh);cx.drawImage(v,rx,ry,rw,rh,0,0,cv.width,cv.height);
+        const r=await det.detect(cv);
+        let code='';
+        if(r.length){const ok=r.filter(x=>eanOK(x.rawValue));if(ok.length===1)code=ok[0].rawValue;else if(ok.length>1){msg.textContent='Hay varios códigos. Deja solo uno en el recuadro.'}else{msg.textContent='Lectura dudosa, acércate un poco y mantén firme.'}}
+        if(code){
+          miss=0;
+          if(code===cand)hits++;else{cand=code;hits=1}
+          const need=/^\d{8}$|^\d{12,13}$/.test(code)?2:3;
+          if(hits>=need&&!(code===last&&Date.now()-lastT<2500)){busy=false;if(accept(code))return;msg.textContent='Listo. Puedes escanear el siguiente.'}
+        }else{miss++;if(miss>3){cand='';hits=0}}
       }catch(e){}
-      setTimeout(tick,180);
+      busy=false;
+      setTimeout(tick,90);
     };tick();
   }catch(e){closeModal(ov);toast('No pude abrir la cámara. Revisa el permiso del navegador.','bad')}
 }

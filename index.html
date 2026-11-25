@@ -808,12 +808,6 @@ VIEWS.home={
   return `
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
    <div class="mb"><div class="mut sm">${esc(fmtLong(Date.now()).replace(/^./,c=>c.toUpperCase()))} · ${esc(S.meta.business)}</div><h2 style="font-size:24px;letter-spacing:-.5px">Hola, ${esc(firstName(S.meta.owner))} 👋</h2></div>
-   <div class="kpis">
-     <div class="kpi hl"><div class="l">Vendido hoy</div><div class="v">${money(ven)}</div></div>
-     <div class="kpi"><div class="l">Ganancia estimada hoy</div><div class="v">${money(profit(ss))}</div></div>
-     <div class="kpi"><div class="l">Te deben</div><div class="v">${money(totalCartera())}</div></div>
-     <div class="kpi"><div class="l">Productos por reponer</div><div class="v">${S.products.filter(p=>!isKit(p)&&p.stock<=p.min).length}</div></div>
-   </div>
    <div class="hgrid">
    ${tips.length?`<div class="mt2 htips"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button data-act="go" data-to="${t.go}">${t.l}</button>`:''}</div>`).join('')}</div>`:''}
    <div class="cards mt2 hcards">${mods.map(m=>`<a class="mod" data-act="go" data-to="${m[0]}">${`<div class="ic">${ic(m[1],'lg')}</div>`}<b>${m[2]}</b><span>${m[3]}</span></a>`).join('')}</div>
@@ -1675,6 +1669,7 @@ VIEWS.caja={
   const Lt=(k,v)=>`<div class="row between" style="padding:11px 0 2px"><b>${k}</b><b style="font-size:19px">${v}</b></div>`;
   return `<div class="kpis"><div class="kpi hl"><div class="l">Debe haber en caja</div><div class="v">${money(r.expected)}</div></div><div class="kpi"><div class="l">Ventas (${r.nSales})</div><div class="v">${money(r.cash+r.digital+r.fiado)}</div></div></div>
    <div class="g2 mt"><button class="btn soft" data-act="mov-form">${ic('plus','sm')} Movimiento</button><button class="btn soft" data-act="arqueo">${ic('check','sm')} Arquear caja</button><button class="btn soft" data-act="go" data-to="ventas">${ic('list','sm')} Historial de ventas</button><button class="btn pri" data-act="close-caja">Cerrar caja</button></div>
+   ${(()=>{const [a2,b2]=range('hoy'),ss2=salesIn(a2,b2),ven2=sum(ss2.filter(x=>x.method!=='autoconsumo'),x=>x.total);return `<div class="panel mt"><div class="ptitle pt-b">${ic('chart','sm')}<span>Resumen del día</span></div><div class="kpis"><div class="kpi hl"><div class="l">Vendido hoy</div><div class="v">${money(ven2)}</div></div><div class="kpi"><div class="l">Ganancia estimada hoy</div><div class="v">${money(profit(ss2))}</div></div><div class="kpi"><div class="l">Te deben (fiados)</div><div class="v">${money(totalCartera())}</div></div><div class="kpi"><div class="l">Productos por reponer</div><div class="v">${S.products.filter(p=>!isKit(p)&&p.stock<=p.min).length}</div></div></div></div>`})()}
    <div class="cgrid mt">
     <div class="panel"><div class="ptitle pt-g">${ic('wallet','sm')}<span>Dinero en la caja</span></div><div class="mut xs center" style="margin:-4px 0 8px">Abrió ${esc(S.meta.owner||'')} · ${fmtDT(c.openedAt)}</div>
      ${Lh('Base de la caja (inicial)',money(r.initial))}${Lh('Ventas en efectivo','+ '+money(r.cash))}${Lh('Abonos de clientes','+ '+money(r.abonosCash))}${Lh('Otros ingresos','+ '+money(r.ingresos))}

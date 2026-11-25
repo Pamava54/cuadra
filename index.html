@@ -420,6 +420,11 @@ html.big body{zoom:1.2}
 .bkh{font-weight:800;font-size:14px;margin-bottom:6px}
 .bkbase{display:flex;justify-content:space-between;align-items:center;background:#DDF6E8;border:1.5px solid #0E9F58;color:#0B7A43;border-radius:12px;padding:10px 12px;margin-bottom:4px;font-weight:800}
 .bkbase small{display:block;font-size:11px;font-weight:600;opacity:.8}.bkbase b{font-size:20px}
+.dbox{border-radius:16px;padding:14px 12px;text-align:center;border:3px solid;margin:10px 0}
+.dbox .dt{font-size:16px;font-weight:800;letter-spacing:.2px}.dbox .dv{font-size:42px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-top:2px}
+.dbox.ok{background:#DDF6E8;border-color:#0E9F58;color:#0B7A43}
+.dbox.up{background:#E3EAFF;border-color:#2447D0;color:#1B3BB3}
+.dbox.low{background:#FDE4E4;border-color:#D92D2D;color:#B01E1E}
 </style>
 </head>
 <body>
@@ -1679,7 +1684,7 @@ VIEWS.caja={
     <div class="panel"><div class="ptitle pt-o">${ic('bag','sm')}<span>Compras</span></div>
      ${Lh('En efectivo',money(w.pEf))}${Lh('Transferencia',money(w.pDig))}${Lh('A crédito',money(w.pCre))}${Lh('Pagos a proveedores',money(w.pagos))}${Lt('Total compras',money(w.pEf+w.pDig+w.pCre))}</div>
    </div>
-   ${(c.arqueos&&c.arqueos.length)?`<div class="panel mt"><h3>Arqueos de este turno</h3><div class="list">${c.arqueos.slice().reverse().map(a=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${fmtDT(a.ts)}${a.by?' · '+esc(a.by):''}</div><div class="s">Base ${money(a.initial||0)} · contó ${money(a.counted)} · debía haber ${money(a.expected)}${a.note?' · '+esc(a.note):''}</div></div><div class="b ${a.diff===0?'ok':a.diff>0?'warn':'bad'}">${a.diff===0?'Cuadró':a.diff>0?'Sobra '+money(a.diff):'Falta '+money(-a.diff)}</div></div>`).join('')}</div></div>`:''}
+   ${(c.arqueos&&c.arqueos.length)?`<div class="panel mt"><h3>Arqueos de este turno</h3><div class="list">${c.arqueos.slice().reverse().map(a=>`<button class="item" data-act="arq-view" data-id="${a.id}"><div class="grow"><div class="t">${fmtDT(a.ts)}${a.by?' · '+esc(a.by):''}</div><div class="s">Base ${money(a.initial||0)} · contó ${money(a.counted)} · debía haber ${money(a.expected)}${a.note?' · '+esc(a.note):''}</div></div><div class="b ${a.diff===0?'ok':a.diff>0?'warn':'bad'}">${a.diff===0?'Cuadró':a.diff>0?'Sobra '+money(a.diff):'Falta '+money(-a.diff)}</div></button>`).join('')}</div><div class="mut xs mt">Toca un arqueo para enviarlo o imprimirlo.</div></div>`:''}
    <div class="panel mt"><h3>Movimientos de hoy</h3>${mv.length?`<div class="list">${mv.map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(m.concept)}</div><div class="s">${{ingreso:'Ingreso',gasto:'Gasto',egreso:'Retiro'}[m.type]} · ${fmtDT(m.ts)}</div></div><div class="b ${m.type==='ingreso'?'ok':'bad'}">${m.type==='ingreso'?'+':'−'}${money(m.amount)}</div></div>`).join('')}</div>`:'<div class="empty">Sin movimientos manuales</div>'}</div>`;
  }
 };
@@ -1728,14 +1733,42 @@ function arqueoForm(){
    <div id="diff" class="tip hide"></div>
    <div class="fg mt"><label class="f">¿Quién contó?</label><input class="in" name="by" value="${esc(S.meta.owner||'')}"></div>
    <div class="fg"><label class="f">Nota (opcional)</label><input class="in" name="note" placeholder="Ej: arqueo de medio día"></div>
-   <button class="btn pri big">Guardar arqueo</button></form>`);
+   <button class="btn pri big">Guardar arqueo</button>
+   <div class="g2 mt"><button class="btn soft" data-after="wa">${ic('chat','sm')} Guardar y enviar</button><button class="btn soft" data-after="print">${ic('print','sm')} Guardar e imprimir</button></div></form>`);
 }
-function saveArqueo(f){
+
+function diffBox(d){
+  const k=d===0?'ok':d>0?'up':'low';
+  return `<div class="dbox ${k}"><div class="dt">${d===0?'✔ Cuadra perfecto':d>0?'Sobra dinero':'Falta dinero'}</div><div class="dv">${d===0?'$ 0':(d>0?'+ ':'− ')+money(Math.abs(d))}</div></div>`;
+}
+function findArq(id){for(const c of S.cajas){const a=(c.arqueos||[]).find(x=>x.id===id);if(a)return{a,c}}return null}
+function arqText(a,c){
+  const r=cajaSum(c),den=Object.keys(a.den||{}).map(Number).sort((x,y)=>y-x);
+  return `*Arqueo de caja · ${S.meta.business}*\n${fmtDT(a.ts)}${a.by?'\nContó: '+a.by:''}\n\nBase de la caja: ${money(a.initial||0)}\nVentas en efectivo: ${money(r.cash)}\nDebía haber: ${money(a.expected)}\n`+(den.length?`\nConteo:\n${den.map(v=>`• ${fmtInt(v)} x ${a.den[v]} = ${money(v*a.den[v])}`).join('\n')}\n`:'')+`\nContado: ${money(a.counted)}\n${a.diff===0?'Cuadró ✔':(a.diff>0?'Sobran ':'Faltan ')+money(Math.abs(a.diff))}${a.note?'\nNota: '+a.note:''}\n\nNo entra como efectivo:\nTransferencia/datáfono: ${money(r.digital)}\nFiado: ${money(r.fiado)}\nConsumo propio: ${money(r.auto)}`;
+}
+function arqHTML(a,c){
+  const r=cajaSum(c),den=Object.keys(a.den||{}).map(Number).sort((x,y)=>y-x),L=(k,v,b)=>`<div class="l">${b?'<b>':''}<span>${k}</span>${b?'</b>':''}<span>${b?'<b>'+v+'</b>':v}</span></div>`;
+  return `<h4>${esc(S.meta.business)}</h4><div style="text-align:center">ARQUEO DE CAJA<br>${fmtDT(a.ts)}</div><hr>
+   ${a.by?L('Contó',esc(a.by)):''}${L('Base de la caja',money(a.initial||0))}${L('Ventas en efectivo',money(r.cash))}${L('Debía haber',money(a.expected),1)}<hr>
+   ${den.length?den.map(v=>L(fmtInt(v)+' x '+a.den[v],money(v*a.den[v]))).join('')+'<hr>':''}
+   ${L('CONTADO',money(a.counted),1)}<hr><div style="text-align:center;font-size:15px;font-weight:800">${a.diff===0?'CUADRÓ':a.diff>0?'SOBRAN':'FALTAN'}</div><div style="text-align:center;font-size:26px;font-weight:900">${a.diff===0?'$ 0':money(Math.abs(a.diff))}</div>
+   ${a.note?`<hr><div>Nota: ${esc(a.note)}</div>`:''}<hr><div style="text-align:center">No entra como efectivo</div>${L('Transf./datáfono',money(r.digital))}${L('Fiado',money(r.fiado))}${L('Consumo propio',money(r.auto))}
+   <br><br><div style="text-align:center">______________________<br>Firma</div>`;
+}
+function arqView(id){
+  const f=findArq(id);if(!f)return;const {a,c}=f;
+  modal('Arqueo · '+fmtDT(a.ts),`${diffBox(a.diff)}<div class="center"><p class="mut" style="margin:0">Base ${money(a.initial||0)} · debía haber ${money(a.expected)} · contaste ${money(a.counted)}${a.by?' · '+esc(a.by):''}</p></div>
+   <div class="g2 mt"><button class="btn soft" data-act="arq-wa" data-id="${id}">${ic('chat','sm')} WhatsApp</button><button class="btn pri" data-act="arq-print" data-id="${id}">${ic('print','sm')} Imprimir</button></div>`);
+}
+function saveArqueo(f,after){
   const c=openCaja(),r=cajaSum(c),fd=new FormData(f),counted=digits(fd.get('counted')),{o}=denomRead(f);
   const a={id:uid(),ts:Date.now(),initial:r.initial,counted,expected:r.expected,diff:counted-r.expected,by:(fd.get('by')||'').trim(),note:(fd.get('note')||'').trim(),den:o};
   (c.arqueos=c.arqueos||[]).push(a);save();closeModal();
   toast(a.diff===0?'Arqueo guardado · ¡Cuadra perfecto!':a.diff>0?'Arqueo guardado · sobran '+money(a.diff):'Arqueo guardado · faltan '+money(-a.diff),a.diff===0?'ok':'warn');
   render();
+  if(after==='print'){const f2=findArq(a.id);$('#print').className='';$('#print').innerHTML=arqHTML(f2.a,f2.c);setTimeout(()=>print(),60);return}
+  if(after==='wa'){const f2=findArq(a.id);window.open('https://wa.me/?text='+encodeURIComponent(arqText(f2.a,f2.c)),'_blank')}
+  arqView(a.id);
 }
 function closeCajaForm(){
   const c=openCaja(),r=cajaSum(c);
@@ -1752,7 +1785,7 @@ function saveClose(f){
   const c=openCaja(),r=cajaSum(c),counted=digits(new FormData(f).get('counted')),note=new FormData(f).get('note').trim();
   Object.assign(c,{closedAt:Date.now(),counted,expected:r.expected,diff:counted-r.expected,note,nSales:r.nSales,summary:r,den:denomRead(f).o});
   save();closeModal();
-  modal('Caja cerrada',`<div class="center"><div class="b" style="font-size:22px">${c.diff===0?'¡Cuadró perfecto! 🎉':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}</div><p class="mut">Contaste ${money(counted)} y debía haber ${money(r.expected)}.</p></div>
+  modal('Caja cerrada',`<div class="center">${diffBox(c.diff)}<p class="mut">Contaste ${money(counted)} y debía haber ${money(r.expected)}.</p></div>
    <div class="tip">${ic('chat','sm')}<div>Comparte el cierre del día contigo mismo o con tu socio.</div><button data-act="wa-close" data-id="${c.id}">WhatsApp</button></div>
    <button class="btn pri big mt" data-act="close">Listo</button>`);
   render();
@@ -2296,6 +2329,9 @@ document.addEventListener('click',async e=>{
    'cat-del'(){const c=S.cats.find(x=>x.id===d.id);ask('Borrar categoría','Los movimientos que ya guardaste no cambian.','Borrar',true).then(ok=>{if(ok){S.cats=S.cats.filter(x=>x.id!==c.id);save();closeModal();render()}})},
    'close-caja'(){closeCajaForm()},
    'arqueo'(){arqueoForm()},
+   'arq-view'(){arqView(d.id)},
+   'arq-wa'(){const f=findArq(d.id);if(f)window.open('https://wa.me/?text='+encodeURIComponent(arqText(f.a,f.c)),'_blank')},
+   'arq-print'(){const f=findArq(d.id);if(!f)return;$('#print').className='';$('#print').innerHTML=arqHTML(f.a,f.c);setTimeout(()=>print(),60)},
    'den-step'(){const f=el.closest('form'),i=$('[data-den="'+d.v+'"]',f);i.value=Math.max(0,(+i.value||0)+(+d.d))||'';denomApply(f)},
    'caja-detail'(){const c=S.cajas.find(x=>x.id===d.id),r=c.summary||cajaSum(c);modal('Cierre del '+fmtD(c.openedAt),`<div class="mut sm" style="margin:-4px 0 8px">Abrió: ${fmtDT(c.openedAt)}${c.closedAt?'<br>Cerró: '+fmtDT(c.closedAt):''}</div><div class="list">${[['Base de la caja (inicial)',r.initial],['Ventas en efectivo',r.cash],['Abonos de clientes (efectivo)',r.abonosCash],['Otros ingresos',r.ingresos],['Gastos',-r.gastos],['Retiros',-r.egresos],['Compras en efectivo',-r.comprasCash],['Pagos a proveedores',-r.pagosProvCash],['— No entra como efectivo —',null],['Transferencia / datáfono',r.digital],['Fiado',r.fiado],['Consumo propio',r.auto]].map(x=>`<div class="item" style="cursor:default;padding:8px 0"><div class="grow mut">${x[0]}</div><b>${x[1]===null?'':money(x[1])}</b></div>`).join('')}</div><div class="total"><span>Debía haber</span><span>${money(c.expected)}</span></div><div class="row between b"><span>Contado</span><span>${money(c.counted)}</span></div><div class="tip ${c.diff===0?'ok':'warn'} mt">${c.diff===0?'Cuadró perfecto':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}${c.note?' · '+esc(c.note):''}</div><button class="btn mt" data-act="wa-close" data-id="${c.id}">${ic('chat','sm')} Compartir por WhatsApp</button>`)},
    'wa-close'(){const c=S.cajas.find(x=>x.id===d.id);window.open('https://wa.me/?text='+encodeURIComponent(closeText(c)),'_blank')},
@@ -2367,7 +2403,7 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
-  if(k==='arqueo')saveArqueo(f);
+  if(k==='arqueo')saveArqueo(f,e.submitter&&e.submitter.dataset.after);
   if(k==='disc'){const fd=new FormData(f);cartX.dk=fd.get('dk')==='%'?'%':'$';let v=digits(fd.get('dv'));if(cartX.dk==='%')v=Math.min(100,v);cartX.dv=v;closeModal();renderCart();return}
   if(k==='dom'){cartX.dom=digits(new FormData(f).get('dom'));closeModal();renderCart();return}
   if(k==='weigh'){const fd=new FormData(f),p=prod(f.dataset.id);let q=0;const g=dec(fd.get('wg')),v=digits(fd.get('wv'));
@@ -2405,7 +2441,7 @@ document.addEventListener('input',e=>{
   if(t.closest&&t.closest('form[data-form="closecaja"],form[data-form="arqueo"]')&&t.name==='counted'){
     const f=t.closest('form'),exp=+f.dataset.exp,c=digits(t.value),box=$('#diff',f);
     if(t.value===''){box.classList.add('hide');return}
-    const d=c-exp;box.className='tip '+(d===0?'ok':'warn');box.innerHTML=d===0?'✔ ¡Cuadra perfecto!':d>0?`Te sobran ${money(d)}`:`Te faltan ${money(-d)}`;
+    const d=c-exp;box.className='';box.innerHTML=diffBox(d);
   }
   if(t.id==='ktprice'){kt.src='price';ktTotals()}
   if(t.id==='ktmargin'){kt.src='margin';ktTotals()}

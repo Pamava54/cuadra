@@ -337,6 +337,23 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
 .cgrid .panel h3{display:flex;align-items:center;gap:8px}
 @media (min-width:1100px){.cgrid{grid-template-columns:repeat(3,1fr);align-items:start}}
 @media (max-width:620px){.g3{grid-template-columns:1fr}}
+
+.labs{display:flex;flex-wrap:wrap;gap:2mm;align-items:flex-start}
+.labs.prev{gap:10px}
+.lbl{border:1px dashed #9aa;border-radius:2px;background:#fff;color:#000;padding:1.6mm 2mm;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid;font-family:system-ui,Arial,sans-serif;line-height:1.15;box-sizing:border-box}
+.lbl .biz{font-size:6pt;text-transform:uppercase;letter-spacing:.4px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbl .nm{font-weight:700;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lbl .pr{font-weight:800;letter-spacing:-.5px}
+.lbl .pu{opacity:.85}
+.lbl .bcw{flex:1;min-height:6mm;margin-top:auto}
+.lbl .nobc{font-size:7pt;border:1px dashed #999;text-align:center;padding:2mm}
+.lbl .bt{text-align:center;letter-spacing:1.5px;font-family:monospace}
+.lbl .dt{font-size:6pt;opacity:.6;text-align:right}
+.lbl.s-p{width:45mm;height:30mm}.s-p .nm{font-size:7pt}.s-p .pr{font-size:15pt}.s-p .pu{font-size:5.5pt}.s-p .bt{font-size:6pt}.s-p .dt{display:none}
+.lbl.s-m{width:60mm;height:40mm}.s-m .nm{font-size:9pt}.s-m .pr{font-size:21pt}.s-m .pu{font-size:7pt}.s-m .bt{font-size:7pt}
+.lbl.s-g{width:90mm;height:55mm;padding:3mm}.s-g .nm{font-size:13pt}.s-g .pr{font-size:32pt}.s-g .pu{font-size:10pt}.s-g .bt{font-size:9pt}.s-g .biz{font-size:8pt}.s-g .dt{font-size:8pt}
+.lbl.cod .nm{font-size:7pt;font-weight:600}.lbl.cod.s-g .nm{font-size:11pt}
+@media print{#print.lab{width:auto;font-family:system-ui,Arial,sans-serif;font-size:inherit}#print.lab .lbl{border-color:#bbb}@page{margin:6mm}}
 </style>
 </head>
 <body>
@@ -609,8 +626,8 @@ const NAV=[
  {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'movimientos',l:'Movimientos',i:'swap',w:1},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
  {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',ventas:'Historial de ventas',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
-const PARENT={compra:'compras',ventas:'caja'};
+const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',ventas:'Historial de ventas',etiquetas:'Etiquetas',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
+const PARENT={compra:'compras',ventas:'caja',etiquetas:'productos'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
 
@@ -829,6 +846,64 @@ function hlist(){
   const ok=r.filter(x=>!x.void&&x.method!=='autoconsumo');
   const M={efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio'};
   el.innerHTML=`<div class="mut sm" style="padding:2px 4px 8px">${ok.length} ${ok.length===1?'venta':'ventas'} · ${money(sum(ok,x=>x.total))}</div>`+r.map(x=>`<button class="item" data-act="sale-detail" data-id="${x.id}"><div class="avatar">${ic('cart','sm')}</div><div class="grow"><div class="t" style="${x.void?'text-decoration:line-through;opacity:.6':''}">Venta #${x.no}${x.void?' · Anulada':''}</div><div class="s">${fmtDT(x.ts)}${x.customerId&&cust(x.customerId)?' · '+esc(cust(x.customerId).name):''}</div></div><div class="right"><div class="b">${money(x.total)}</div><span class="badge ${x.method==='fiado'?'low':'gray'}">${M[x.method]}</span></div></button>`).join('');
+}
+
+
+/* PUM + CÓDIGOS DE BARRAS + ETIQUETAS */
+const PUMU={g:{f:1000,b:'kg',n:'kilogramo (kg)'},kg:{f:1,b:'kg',n:'kilogramo (kg)'},ml:{f:1000,b:'L',n:'litro (L)'},l:{f:1,b:'L',n:'litro (L)'},m:{f:1,b:'m',n:'metro (m)'},cm:{f:100,b:'m',n:'metro (m)'},und:{f:1,b:'u',n:'unidad'}};
+const UNL={g:'g',kg:'kg',ml:'ml',l:'L',m:'m',cm:'cm',und:'und'};
+// PUM = precio de venta ÷ (contenido neto convertido a kg, L, m o unidad)
+function pum(p){const u=PUMU[p.unit];if(!u||!(p.net>0)||!(p.price>0))return null;const base=p.net/u.f;return{v:Math.round(p.price/base),name:u.n,net:`${qfmt(p.net)} ${UNL[p.unit]}`}}
+function pumHint(){const f=document.querySelector('form[data-form=product]');if(!f)return;const el=$('#pumh');if(!el)return;
+  const r=pum({net:dec(f.net.value),unit:f.unit.value,price:digits(f.price.value)});
+  el.innerHTML=r?`PUM: <b>${money(r.v)}</b> por ${r.name}. Fórmula: precio ÷ contenido en ${PUMU[f.unit.value].b==='u'?'unidades':PUMU[f.unit.value].n}.`:'Si el producto se vende por peso, volumen o tamaño, escribe cuánto trae y Cuadra calcula el PUM.'}
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('form[data-form=product]'))pumHint()});
+document.addEventListener('change',e=>{if(e.target.name==='unit')pumHint()});
+const eanCheck=d=>{let t=0;for(let i=0;i<12;i++)t+=+d[i]*(i%2?3:1);return(10-t%10)%10};
+function validEAN(c){c=String(c||'');if(!/^\d+$/.test(c))return false;if(c.length===13)return eanCheck(c)===+c[12];if(c.length===12)return eanCheck('0'+c.slice(0,11))===+c[11];if(c.length===8){let t=0;for(let i=0;i<7;i++)t+=+c[i]*(i%2?1:3);return(10-t%10)%10===+c[7]}return false}
+function newCode(){let c;do{S.counters.own=(S.counters.own||0)+1;const b='20'+String(S.counters.own).padStart(10,'0');c=b+eanCheck(b)}while(S.products.some(p=>p.barcode===c));save();return c}
+const EL=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'],EG=['0100111','0110011','0011011','0100001','0011101','0111001','0000101','0010001','0001001','0010111'],ER=['1110010','1100110','1101100','1000010','1011100','1001110','1010000','1000100','1001000','1110100'],EP=['LLLLLL','LLGLGG','LLGGLG','LLGGGL','LGLLGG','LGGLLG','LGGGLL','LGLGLG','LGLGGL','LGGLGL'];
+const C39={'0':'nnnwwnwnn','1':'wnnwnnnnw','2':'nnwwnnnnw','3':'wnwwnnnnn','4':'nnnwwnnnw','5':'wnnwwnnnn','6':'nnwwwnnnn','7':'nnnwnnwnw','8':'wnnwnnwnn','9':'nnwwnnwnn','*':'nwnnwnwnn'};
+function barBits(code){
+  code=String(code||'').replace(/\s/g,'');if(!/^\d+$/.test(code))return null;let b='',txt=code;
+  if(code.length===12)code='0'+code;
+  if(code.length===13){const par=EP[+code[0]];b='101';for(let i=1;i<=6;i++)b+=(par[i-1]==='L'?EL:EG)[+code[i]];b+='01010';for(let i=7;i<=12;i++)b+=ER[+code[i]];b+='101';return{bits:b,txt:code.length===13&&txt.length===12?txt:code}}
+  if(code.length===8){b='101';for(let i=0;i<4;i++)b+=EL[+code[i]];b+='01010';for(let i=4;i<8;i++)b+=ER[+code[i]];b+='101';return{bits:b,txt:code}}
+  const full='*'+code+'*';full.split('').forEach((ch,k)=>{const pt=C39[ch];if(k)b+='0';[...pt].forEach((x,i)=>{const w=x==='w'?3:1;b+=(i%2?'0':'1').repeat(w)})});return{bits:b,txt:code}
+}
+function barSVG(code){
+  const r=barBits(code);if(!r)return '';const q=10,W=r.bits.length+q*2;let x=0,out='';
+  while(x<r.bits.length){if(r.bits[x]==='1'){let y=x;while(y<r.bits.length&&r.bits[y]==='1')y++;out+=`<rect x="${x+q}" y="0" width="${y-x}" height="60"/>`;x=y}else x++}
+  return `<svg viewBox="0 0 ${W} 60" preserveAspectRatio="none" shape-rendering="crispEdges" style="width:100%;height:100%;display:block" fill="#000">${out}</svg>`;
+}
+const fmtCode=c=>{c=String(c);return c.length===13?`${c[0]} ${c.slice(1,7)} ${c.slice(7)}`:c};
+let lab={mode:'precio',size:'m',sel:{},q:''};
+function labHTML(p){
+  const bc=barSVG(p.barcode),u=pum(p),sz=lab.size,txt=p.barcode?fmtCode(p.barcode):'';
+  if(lab.mode==='codigo')return `<div class="lbl s-${sz} cod"><div class="nm">${esc(p.name)}</div><div class="bcw">${bc||'<div class="nobc">Sin código</div>'}</div><div class="bt">${esc(txt)}</div></div>`;
+  return `<div class="lbl s-${sz}"><div class="biz">${esc(S.meta.business)}</div><div class="nm">${esc(p.name)}</div><div class="pr">${money(p.price)}</div>${u?`<div class="pu">PUM: <b>${money(u.v)}</b> por ${u.name}<br>Contenido: ${u.net}</div>`:''}<div class="bcw">${bc||'<div class="nobc">Sin código</div>'}</div><div class="bt">${esc(txt)}</div><div class="dt">${new Date().toLocaleDateString('es-CO')}</div></div>`;
+}
+function labAll(){const out=[];for(const id in lab.sel){const p=prod(id);if(!p)continue;for(let i=0;i<lab.sel[id];i++)out.push(labHTML(p))}return out.join('')}
+VIEWS.etiquetas={
+ html(){
+  const M=[['precio','Etiqueta de precio'],['codigo','Solo código de barras']],Z=[['p','Pequeña'],['m','Mediana'],['g','Grande']];
+  return `<div class="panel"><div class="chips">${M.map(m=>`<button data-act="lab-mode" data-v="${m[0]}" class="${lab.mode===m[0]?'on':''}">${m[1]}</button>`).join('')}</div>
+   <p class="mut sm" style="margin:10px 2px 0">${lab.mode==='precio'?'Trae nombre, precio, precio por unidad de medida (PUM), código de barras y fecha.':'Solo el código de barras con su número. Útil para pegar en ofertas, kits o productos sin código.'}</p>
+   <div class="chips mt">${Z.map(z=>`<button data-act="lab-size" data-v="${z[0]}" class="${lab.size===z[0]?'on':''}">${z[1]}</button>`).join('')}</div></div>
+  <div class="panel"><h3>1. Elige los productos</h3><div class="searchbar"><input id="lq" class="in" placeholder="Buscar producto o escanear código" value="${esc(lab.q)}" autocomplete="off"></div><div id="lres" class="list mt"></div>
+   <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn sm soft" data-act="lab-all">Todos los productos</button><button class="btn sm soft" data-act="lab-fav">Solo favoritos</button><button class="btn sm" data-act="lab-clear">Vaciar</button></div></div>
+  <div class="panel"><h3>2. Cantidad de etiquetas</h3><div id="lsel" class="list"></div></div>
+  <div class="panel"><div class="row between mb"><h3 style="margin:0">Vista previa</h3><button class="btn pri" data-act="lab-print">${ic('list','sm')} Imprimir</button></div><div id="lpv" class="labs prev"></div></div>`},
+ after(){labRender();$('#lq').addEventListener('input',e=>{lab.q=e.target.value;labRes()});$('#lq').addEventListener('keydown',e=>{if(e.key==='Enter'){const f=findProducts(lab.q,1,false)[0];if(f){labAdd(f.id);lab.q='';e.target.value='';labRes()}}})}
+};
+function labRes(){const el=$('#lres');if(!el)return;if(!lab.q.trim()){el.innerHTML='';return}
+  el.innerHTML=findProducts(lab.q,6,false).map(p=>`<button class="item" data-act="lab-add" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${money(p.price)}${p.barcode?' · '+esc(p.barcode):' · sin código'}</div></div><span class="badge gray">Agregar</span></button>`).join('')||'<div class="mut sm">Sin resultados</div>'}
+function labAdd(id){lab.sel[id]=(lab.sel[id]||0)+1;labRender()}
+function labRender(){
+  labRes();const ids=Object.keys(lab.sel).filter(i=>prod(i));
+  const el=$('#lsel');if(el)el.innerHTML=ids.length?ids.map(id=>{const p=prod(id),bad=!p.barcode?'Sin código de barras':(!/^\d+$/.test(p.barcode)?'Código no estándar':(!validEAN(p.barcode)&&[8,12,13].includes(p.barcode.length)?'Dígito de control no válido':''));
+   return `<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${money(p.price)}${bad?` · <span class="bad">${bad}</span>`:''}</div>${bad?`<button class="btn sm soft mt" data-act="lab-gen" data-id="${id}">Crear código EAN propio</button>`:''}</div><div class="row" style="gap:6px"><button class="btn sm icon" data-act="lab-qty" data-id="${id}" data-d="-1">−</button><b style="min-width:26px;text-align:center">${lab.sel[id]}</b><button class="btn sm icon" data-act="lab-qty" data-id="${id}" data-d="1">+</button></div></div>`}).join(''):'<div class="empty">Busca y agrega productos arriba</div>';
+  const pv=$('#lpv');if(pv)pv.innerHTML=labAll()||'<div class="mut sm">Aquí verás las etiquetas</div>';
 }
 
 /* INVENTARIO */
@@ -1060,7 +1135,7 @@ function saleText(s){
 VIEWS.productos={
  html(q){
   const f=q.f||'todos';
-  return `<div class="searchbar"><input id="pq" class="in" placeholder="Buscar por nombre o código" autocomplete="off"><button class="btn soft icon" data-act="scan-find" aria-label="Escanear">${ic('scan')}</button><button class="btn pri" data-act="new-product">${ic('plus','sm')}<span>Nuevo</span></button></div>
+  return `<div class="searchbar"><input id="pq" class="in" placeholder="Buscar por nombre o código" autocomplete="off"><button class="btn soft icon" data-act="scan-find" aria-label="Escanear">${ic('scan')}</button><button class="btn soft" data-act="go" data-to="etiquetas">${ic('tag','sm')}<span>Etiquetas</span></button><button class="btn pri" data-act="new-product">${ic('plus','sm')}<span>Nuevo</span></button></div>
   <div class="chips mt" id="pf">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados']].map(x=>`<button data-act="pfilter" data-f="${x[0]}" class="${f===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
   <div class="panel mt"><div id="plist" class="list"></div></div>`;
  },
@@ -1106,6 +1181,7 @@ function productForm(id,pre={}){
       <input type="file" id="pfile" accept="image/*" capture="environment" class="hide"><input type="file" id="pfile2" accept="image/*" class="hide"><input type="hidden" name="img" id="pimgv" value="${d.img||''}"></div></div>
     <div class="fg"><label class="f">Nombre</label><input class="in" name="name" required value="${esc(d.name)}" placeholder="Ej: Arroz 500 g" ${p?'':'autofocus'}></div>
     <div class="fg"><label class="f">Código de barras</label><div class="searchbar"><input class="in grow" name="barcode" id="pbc" value="${esc(d.barcode)}" placeholder="Escanea o escribe (opcional)" inputmode="numeric"><button type="button" class="btn soft icon" data-act="scan-field" aria-label="Escanear">${ic('scan')}</button><button type="button" class="btn sm" style="min-height:46px" data-act="gen-code">Crear</button></div></div>
+    <div class="fg"><label class="f">Contenido del empaque <span class="xs">(para el precio por kilo, litro, etc.)</span></label><div class="g2"><input class="in" name="net" inputmode="decimal" value="${d.net?qfmt(d.net):''}" placeholder="Ej: 500"><select class="in" name="unit">${[['','Sin medida'],['g','gramos (g)'],['kg','kilos (kg)'],['ml','mililitros (ml)'],['l','litros (L)'],['m','metros (m)'],['cm','centímetros (cm)'],['und','unidades en el paquete']].map(u=>`<option value="${u[0]}" ${(d.unit||'')===u[0]?'selected':''}>${u[1]}</option>`).join('')}</select></div><div class="mut sm" id="pumh" style="margin-top:6px"></div></div>
     <div class="g2"><div class="fg"><label class="f">Precio de compra</label><input class="in money" name="cost" inputmode="numeric" value="${d.cost?fmtInt(d.cost):''}" placeholder="0"></div>
     <div class="fg"><label class="f">Margen de ganancia (%)</label><input class="in" name="margin" inputmode="decimal" value="${(d.cost&&d.price>d.cost)?String(Math.round((d.price-d.cost)/d.price*1000)/10).replace('.',','):(p?'':(S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''))}" placeholder="Ej: 20"></div></div>
     <div class="fg"><label class="f">Precio de venta</label><input class="in money" name="price" inputmode="numeric" required value="${d.price?fmtInt(d.price):''}" placeholder="0"></div>
@@ -1137,7 +1213,7 @@ function marginHint(){
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
-  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on'};
+  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':''};
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
   if(o.barcode){const dup=S.products.find(p=>p.barcode===o.barcode&&p.id!==id);if(dup){toast(`Ese código ya es de “${dup.name}”`,'bad');return}}
@@ -1474,7 +1550,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="etiquetas"><div class="ic">${ic('tag','lg')}</div><b>Etiquetas</b><span>Precio y código de barras</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
@@ -1543,7 +1619,7 @@ function loadDemo(){
 }
 
 /* ---------- impresión ---------- */
-function printSale(id){const s=S.sales.find(x=>x.id===id);if(!s)return;$('#print').innerHTML=receiptHTML(s);setTimeout(()=>print(),60)}
+function printSale(id){const s=S.sales.find(x=>x.id===id);if(!s)return;$('#print').className='';$('#print').innerHTML=receiptHTML(s);setTimeout(()=>print(),60)}
 const waLink=(phone,text)=>{let p=String(phone||'').replace(/\D/g,'');if(p.length===10)p='57'+p;return `https://wa.me/${p}?text=${encodeURIComponent(text)}`};
 
 /* ---------- eventos ---------- */
@@ -1562,7 +1638,7 @@ document.addEventListener('click',async e=>{
    'scan-find'(){scanner(c=>{$('#pq').value=c;plist();const p=S.products.find(x=>x.barcode===c);toast(p?p.name:'Código '+c+' no existe',p?'ok':'warn')},false)},
    'scan-field'(){scanner(c=>{const i=$('#pbc');if(i){i.value=c;const p=S.products.find(x=>x.barcode===c);toast(p?`Ya existe: ${p.name}`:'Código leído',p?'warn':'ok')}},false)},
    'scan-buy'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p)addPurchaseLine(p.id);else{closeModal();productForm(null,{barcode:c,buy:true})}},true)},
-   'gen-code'(){const i=$('#pbc');S.counters.code++;i.value='CUA'+String(S.counters.code).padStart(6,'0');save()},
+   'gen-code'(){$('#pbc').value=newCode()},
    'add-cart'(){addCart(d.id);const q=$('#vq');if(q&&q.value){q.value='';renderRes()}if(q&&!$('.ovl')&&innerWidth>=900)q.focus()},
    'clear-cart'(){clearCart()},
    lock(){sessSet(false);gate()},
@@ -1609,6 +1685,15 @@ document.addEventListener('click',async e=>{
    mvp(){mvP=d.p;render()},
    seg2(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements.type.value=d.v},
    'mov-form'(){movForm()},
+   'lab-mode'(){lab.mode=d.v;render()},
+   'lab-size'(){lab.size=d.v;render()},
+   'lab-add'(){labAdd(d.id);lab.q='';$('#lq').value=''},
+   'lab-qty'(){const n=(lab.sel[d.id]||0)+(+d.d);if(n<=0)delete lab.sel[d.id];else lab.sel[d.id]=n;labRender()},
+   'lab-all'(){S.products.forEach(p=>{if(!lab.sel[p.id])lab.sel[p.id]=1});labRender()},
+   'lab-fav'(){S.products.filter(p=>p.fav).forEach(p=>{if(!lab.sel[p.id])lab.sel[p.id]=1});labRender()},
+   'lab-clear'(){lab.sel={};labRender()},
+   'lab-gen'(){const p=prod(d.id);p.barcode=newCode();save();labRender();toast('Código creado: '+p.barcode,'ok')},
+   'lab-print'(){const h=labAll();if(!h)return toast('Agrega productos primero','warn');const pr=$('#print');pr.className='lab';pr.innerHTML=`<div class="labs">${h}</div>`;setTimeout(()=>print(),80)},
    'newcat-toggle'(){const i=$('#newcat');i.classList.toggle('hide');if(!i.classList.contains('hide'))i.focus();else i.value=''},
    'cat-new'(){catForm()},
    'cat-edit'(){catForm(d.id)},

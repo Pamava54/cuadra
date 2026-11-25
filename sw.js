@@ -1,5 +1,5 @@
 /* Cuadra · service worker: deja la app disponible sin internet */
-const CACHE = 'cuadra-v2';
+const CACHE = 'cuadra-v3';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

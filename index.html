@@ -296,6 +296,11 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
   .vwrap{grid-template-columns:minmax(0,1fr) 340px;align-items:start;max-width:1200px}
   .vside{position:sticky;top:76px;bottom:auto}
 }
+
+.pcardbig{background:#fff;border-radius:22px;box-shadow:var(--sh);padding:26px 22px;text-align:center;margin-top:6px}
+.pcardbig .pn{font-size:24px;font-weight:800;letter-spacing:-.4px}
+.pcardbig .pp{font-size:68px;font-weight:800;letter-spacing:-2px;color:var(--pri);margin:6px 0 10px;line-height:1.05}
+@media (max-width:899px){.pcardbig .pp{font-size:52px}}
 </style>
 </head>
 <body>
@@ -334,6 +339,7 @@ const IC={
  cart:'M3 4h2l2.4 10.2a1 1 0 001 .8h8.7a1 1 0 001-.8L20 7H6.2M9 20h.01M17 20h.01',
  box:'M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8',
  list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+ tag:'M3 12V4a1 1 0 011-1h8l9 9-9 9-9-9zM8 8h.01',
  swap:'M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7',
  bag:'M6 7h12l1 13H5L6 7zM9 7a3 3 0 016 0',
  users:'M16 19v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM20 19v-1a3.5 3.5 0 00-2.5-3.3M16 4.2a3.5 3.5 0 010 6.6',
@@ -555,12 +561,12 @@ async function scanner(onCode,continuous){
 
 /* ---------- router y estructura ---------- */
 const NAV=[
- {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},
+ {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},{r:'precios',l:'Consultar precio',i:'tag',w:1},
  {r:'productos',l:'Productos',i:'box',g:'Mi mercancía'},{r:'inventario',l:'Inventario',i:'list',w:1},{r:'compras',l:'Compras',i:'bag',w:1},{r:'proveedores',l:'Proveedores',i:'truck',w:1},
  {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'movimientos',l:'Movimientos',i:'swap',w:1},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
  {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
+const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
 const PARENT={compra:'compras'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
@@ -651,7 +657,7 @@ const firstName=n=>{const w=(n||'').trim().split(/\s+/)[0]||'';return w.charAt(0
 VIEWS.home={
  html(){
   const [a,b]=range('hoy'),ss=salesIn(a,b),ven=sum(ss.filter(s=>s.method!=='autoconsumo'),s=>s.total);
-  const mods=[['vender','cart','Vender','Cobrar rápido'],['productos','box','Productos',`${S.products.length} creados`],['inventario','list','Inventario','Lo que te queda'],['compras','bag','Compras','Lo que te llega'],['proveedores','truck','Proveedores','A quién le debes'],['clientes','users','Clientes y fiados','Quién te debe'],['caja','wallet','Mi caja','Abrir, mover y cerrar'],['movimientos','swap','Movimientos y gastos','Todo lo que entra y sale'],['reportes','chart','¿Cómo voy?','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
+  const mods=[['vender','cart','Vender','Cobrar rápido'],['precios','tag','Consultar precio','Escanea y mira'],['productos','box','Productos',`${S.products.length} creados`],['inventario','list','Inventario','Lo que te queda'],['compras','bag','Compras','Lo que te llega'],['proveedores','truck','Proveedores','A quién le debes'],['clientes','users','Clientes y fiados','Quién te debe'],['caja','wallet','Mi caja','Abrir, mover y cerrar'],['movimientos','swap','Movimientos y gastos','Todo lo que entra y sale'],['reportes','chart','¿Cómo voy?','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
   const tips=insights();
   return `
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
@@ -715,6 +721,38 @@ function expForm(){
    <div class="fg"><label class="f">Valor</label><input class="in money" name="amount" inputmode="numeric" required placeholder="0" autofocus></div>
    <div class="fg"><label class="f">¿Cómo lo pagaste?</label><div class="pm"><button type="button" class="on" data-act="segf" data-f="method" data-v="efectivo">Efectivo<small>Sale de la caja</small></button><button type="button" data-act="segf" data-f="method" data-v="digital">Transferencia<small>No toca la caja</small></button></div><input type="hidden" name="method" value="efectivo"></div>
    <button class="btn pri big">Guardar gasto</button></form>`);
+}
+
+
+/* CONSULTAR PRECIO */
+let priceId='';
+VIEWS.precios={
+ html(){
+  return `<div class="vwrap" style="max-width:760px;grid-template-columns:minmax(0,1fr)">
+   <div class="vsearch"><input id="cq2" class="in" placeholder="Escanea o escribe el producto" autocomplete="off" enterkeyhint="search"><button class="btn pri icon" data-act="scan-price" aria-label="Escanear con cámara">${ic('scan')}</button></div>
+   <div id="psug"></div><div id="pcard"></div></div>`;
+ },
+ after(){
+  const q=$('#cq2');q.addEventListener('input',()=>{priceId='';priceDraw()});
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const v=q.value.trim();if(!v)return;
+    const ex=S.products.find(p=>p.barcode===v)||findProducts(v,1,true)[0];
+    if(ex){priceId=ex.id;q.value='';priceDraw();q.focus()}else toast('No encontré ese producto','warn')}});
+  priceDraw();if(innerWidth>=900)q.focus();
+ }
+};
+function priceDraw(){
+  const sg=$('#psug'),cd=$('#pcard');if(!sg)return;
+  const q=($('#cq2').value||'').trim();
+  if(q){const r=findProducts(q,6,true);
+    sg.innerHTML=r.length?`<div class="vsug">${r.map(p=>`<button data-act="price-pick" data-id="${p.id}"><span class="n">${esc(p.name)}</span><span class="p">${money(p.price)}</span></button>`).join('')}</div>`:`<div class="panel center mut"><b style="color:var(--ink)">No encontré “${esc(q)}”</b></div>`;
+    cd.innerHTML='';return}
+  sg.innerHTML='';
+  const p=prod(priceId);
+  if(!p){cd.innerHTML=`<div class="vempty">${ic('scan','lg')}<b>Consulta un precio</b><span>Escanea el código o escribe el nombre. No se vende nada, solo se mira.</span></div>`;return}
+  const st=p.stock<=0?'<span class="badge out">Agotado</span>':p.stock<=p.min?`<span class="badge low">Quedan ${qfmt(p.stock)}</span>`:`<span class="badge ok">Hay ${qfmt(p.stock)} disponibles</span>`;
+  cd.innerHTML=`<div class="pcardbig"><div class="pn">${esc(p.name)}</div><div class="pp">${money(p.price)}</div><div>${st}</div>
+   <div class="mut sm" style="margin-top:12px">${p.cat?esc(p.cat)+' · ':''}${esc(p.barcode||'Sin código de barras')}</div>
+   <div class="g2" style="margin-top:18px"><button class="btn pri" data-act="price-add" data-id="${p.id}">${ic('cart','sm')} Agregar a la venta</button><button class="btn soft" data-act="edit-product" data-id="${p.id}">Cambiar precio</button></div></div>`;
 }
 
 /* INVENTARIO */
@@ -1243,7 +1281,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
@@ -1341,6 +1379,9 @@ document.addEventListener('click',async e=>{
    'new-product'(){productForm(null,{barcode:d.code||'',name:d.name||'',buy:!!d.buy})},
    'edit-product'(){productForm(d.id)},
    catalog(){catalog()},
+   'price-pick'(){priceId=d.id;$('#cq2').value='';priceDraw();$('#cq2').focus()},
+   'price-add'(){addCart(d.id);go('vender')},
+   'scan-price'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);closeModal();if(p){priceId=p.id;priceDraw()}else toast(`Código ${c} no existe`,'warn')})},
    'adj-stock'(){adjustForm(d.id)},
    invf(){invF=d.f;render()},
    'del-product'(){ask('Eliminar producto','Se borra del inventario. Las ventas pasadas se conservan.','Eliminar',true).then(ok=>{if(ok){S.products=S.products.filter(p=>p.id!==d.id);save();closeModal();toast('Producto eliminado');render()}})},

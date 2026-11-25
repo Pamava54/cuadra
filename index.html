@@ -399,6 +399,11 @@ html.big body{zoom:1.2}
 #fcalc .cf{display:flex;gap:6px;padding:0 10px 10px}
 #fcalc .cf button{flex:1;height:38px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font-weight:700;font-size:13px;color:var(--ink);cursor:pointer}
 @media print{#fcalc,#fcalc-fab{display:none!important}}
+.ptitle{display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;font-size:21px;font-weight:800;letter-spacing:-.3px;padding:13px 12px;border-radius:14px;margin:0 0 10px;border:2px solid}
+.ptitle svg{width:26px;height:26px}
+.pt-g{background:#DDF6E8;color:#0B7A43;border-color:#0E9F58}
+.pt-b{background:#E8EDFF;color:#2447D0;border-color:#2447D0}
+.pt-o{background:#FFEEDB;color:#A34E00;border-color:#C25E00}
 </style>
 </head>
 <body>
@@ -1655,12 +1660,12 @@ VIEWS.caja={
   return `<div class="kpis"><div class="kpi hl"><div class="l">Debe haber en caja</div><div class="v">${money(r.expected)}</div></div><div class="kpi"><div class="l">Ventas (${r.nSales})</div><div class="v">${money(r.cash+r.digital+r.fiado)}</div></div></div>
    <div class="g3 mt"><button class="btn soft" data-act="mov-form">${ic('plus','sm')} Movimiento</button><button class="btn soft" data-act="go" data-to="ventas">${ic('list','sm')} Historial de ventas</button><button class="btn pri" data-act="close-caja">Cerrar caja</button></div>
    <div class="cgrid mt">
-    <div class="panel"><h3>${ic('wallet','sm')} Dinero en la caja</h3><div class="mut xs" style="margin:-4px 0 6px">Abrió ${esc(S.meta.owner||'')} · ${fmtDT(c.openedAt)}</div>
+    <div class="panel"><div class="ptitle pt-g">${ic('wallet','sm')}<span>Dinero en la caja</span></div><div class="mut xs center" style="margin:-4px 0 8px">Abrió ${esc(S.meta.owner||'')} · ${fmtDT(c.openedAt)}</div>
      ${Lh('Caja inicial',money(r.initial))}${Lh('Ventas en efectivo','+ '+money(r.cash))}${Lh('Abonos de clientes','+ '+money(r.abonosCash))}${Lh('Otros ingresos','+ '+money(r.ingresos))}
      ${Lh('Gastos','− '+money(r.gastos),'bad')}${Lh('Retiros y consignaciones','− '+money(r.egresos),'bad')}${Lh('Compras en efectivo','− '+money(r.comprasCash),'bad')}${Lh('Pagos a proveedores','− '+money(r.pagosProvCash),'bad')}${Lt('Debe haber',money(r.expected))}</div>
-    <div class="panel"><h3>${ic('cart','sm')} Ventas</h3>
+    <div class="panel"><div class="ptitle pt-b">${ic('cart','sm')}<span>Ventas</span></div>
      ${Lh('En efectivo',money(r.cash))}${Lh('Transferencia / datáfono',money(r.digital))}${Lh('Fiado',money(r.fiado))}${Lh('Consumo propio',money(r.auto))}${Lt('Total ventas',money(r.cash+r.digital+r.fiado))}<div class="mut xs mt">${r.nSales} ${r.nSales===1?'venta':'ventas'} · el consumo propio no se suma al total</div></div>
-    <div class="panel"><h3>${ic('bag','sm')} Compras</h3>
+    <div class="panel"><div class="ptitle pt-o">${ic('bag','sm')}<span>Compras</span></div>
      ${Lh('En efectivo',money(w.pEf))}${Lh('Transferencia',money(w.pDig))}${Lh('A crédito',money(w.pCre))}${Lh('Pagos a proveedores',money(w.pagos))}${Lt('Total compras',money(w.pEf+w.pDig+w.pCre))}</div>
    </div>
    <div class="panel mt"><h3>Movimientos de hoy</h3>${mv.length?`<div class="list">${mv.map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(m.concept)}</div><div class="s">${{ingreso:'Ingreso',gasto:'Gasto',egreso:'Retiro'}[m.type]} · ${fmtDT(m.ts)}</div></div><div class="b ${m.type==='ingreso'?'ok':'bad'}">${m.type==='ingreso'?'+':'−'}${money(m.amount)}</div></div>`).join('')}</div>`:'<div class="empty">Sin movimientos manuales</div>'}</div>`;

@@ -722,6 +722,11 @@ VIEWS.home={
 
 /* MOVIMIENTOS */
 let mvP='hoy';
+const PUC={'Arriendo':'512010','Servicios (luz, agua, internet)':'513525','Nómina y pagos a personal':'510506','Transporte y domicilios':'513550','Bolsas y empaques':'519545','Mantenimiento':'514510','Publicidad':'523560','Impuestos':'511595','Otros gastos':'519595','Otros ingresos':'429595','Devolución de compra':'613595'};
+function mcats(kind){
+  if(!S.cats){S.cats=[...EXP_CATS.map(n=>({id:uid(),name:n,kind:'gasto',puc:PUC[n]||'',off:0})),...['Otros ingresos','Devolución de compra'].map(n=>({id:uid(),name:n,kind:'ingreso',puc:PUC[n]||'',off:0}))];save()}
+  return kind?S.cats.filter(c=>c.kind===kind):S.cats;
+}
 const EXP_CATS=['Arriendo','Servicios (luz, agua, internet)','Nómina y pagos a personal','Transporte y domicilios','Bolsas y empaques','Mantenimiento','Publicidad','Impuestos','Otros gastos'];
 function mvRows(a,b){
   const R=[],M={efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio',credito:'A crédito'};
@@ -757,9 +762,18 @@ VIEWS.movimientos={
   <div class="panel mt"><h3>Todo lo que pasó</h3>${R.length?`<div class="list">${rows}</div>`:'<div class="empty"><div class="big">🧾</div><b>Sin movimientos en este período</b>Aquí aparece cada venta, compra, abono y gasto.</div>'}</div>`;
  }
 };
+function catForm(id){
+  const c=id?S.cats.find(x=>x.id===id):null;
+  modal(c?'Editar categoría':'Nueva categoría',`<form data-form="cat" data-id="${id||''}">
+   <div class="fg"><label class="f">Nombre</label><input class="in" name="name" required value="${c?esc(c.name):''}" placeholder="Ej: Aseo del local" autofocus></div>
+   <div class="fg"><label class="f">¿Es gasto o ingreso?</label><select class="in" name="kind"><option value="gasto" ${!c||c.kind==='gasto'?'selected':''}>Gasto (sale plata)</option><option value="ingreso" ${c&&c.kind==='ingreso'?'selected':''}>Ingreso (entra plata)</option></select></div>
+   <div class="fg"><label class="f">Cuenta contable (opcional)</label><input class="in" name="puc" inputmode="numeric" value="${c?esc(c.puc||''):''}" placeholder="Ej: 513525"><p class="mut xs" style="margin:6px 2px 0">Código del PUC. Tu contador lo usará más adelante; puedes dejarlo vacío.</p></div>
+   ${c?`<label class="row" style="gap:8px;margin-bottom:12px"><input type="checkbox" name="on" ${c.off?'':'checked'}> Mostrar al registrar movimientos</label>`:''}
+   <button class="btn pri big">Guardar</button>${c?`<button type="button" class="btn danger mt" data-act="cat-del" data-id="${c.id}">${ic('trash','sm')} Borrar categoría</button>`:''}</form>`);
+}
 function expForm(){
   modal('Registrar un gasto',`<form data-form="exp">
-   <div class="fg"><label class="f">¿En qué fue?</label><select class="in" name="cat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+   <div class="fg"><label class="f">¿En qué fue?</label><select class="in" name="cat">${mcats('gasto').filter(c=>!c.off).map(c=>`<option>${esc(c.name)}</option>`).join('')}</select><button type="button" class="btn soft sm mt" data-act="newcat-toggle">${ic('plus','sm')} Nueva categoría</button><input class="in mt hide" id="newcat" name="newcat" placeholder="Nombre de la nueva categoría"></div>
    <div class="fg"><label class="f">Detalle (opcional)</label><input class="in" name="concept" placeholder="Ej: Recibo de la luz de noviembre"></div>
    <div class="fg"><label class="f">Valor</label><input class="in money" name="amount" inputmode="numeric" required placeholder="0" autofocus></div>
    <div class="fg"><label class="f">¿Cómo lo pagaste?</label><div class="pm"><button type="button" class="on" data-act="segf" data-f="method" data-v="efectivo">Efectivo<small>Sale de la caja</small></button><button type="button" data-act="segf" data-f="method" data-v="digital">Transferencia<small>No toca la caja</small></button></div><input type="hidden" name="method" value="efectivo"></div>
@@ -1439,6 +1453,9 @@ VIEWS.mas={
    <div class="fg"><label class="f">Margen de ganancia por defecto (%)</label><input class="in" name="defMargin" inputmode="decimal" value="${S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''}" placeholder="Ej: 20"><p class="mut xs" style="margin:6px 2px 0">Se pone solo al crear productos nuevos. Puedes cambiarlo en cada producto.</p></div>
    <div class="fg"><label class="f">Redondear el precio calculado</label><select class="in" name="round"><option value="0" ${!S.meta.round?'selected':''}>Sin redondear (exacto)</option><option value="50" ${S.meta.round==50?'selected':''}>Hacia arriba, a múltiplos de $50</option><option value="100" ${S.meta.round==100?'selected':''}>Hacia arriba, a múltiplos de $100</option></select></div>
    <button class="btn soft">Guardar</button></form></div>
+  <div class="panel"><h3>Categorías de gastos e ingresos</h3><p class="mut sm" style="margin:0 0 10px">Son las opciones que ves al registrar un movimiento. Crea las tuyas o escóndelas si no las usas.</p>
+   <div class="list">${mcats().map(c=>`<button class="item" data-act="cat-edit" data-id="${c.id}" style="${c.off?'opacity:.5':''}"><div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${c.kind==='gasto'?'Gasto':'Ingreso'}${c.puc?' · cuenta '+esc(c.puc):''}${c.off?' · oculta':''}</div></div><span class="mut">Editar</span></button>`).join('')}</div>
+   <button class="btn soft mt" data-act="cat-new">${ic('plus','sm')} Nueva categoría</button></div>
   <div class="panel"><h3>Seguridad</h3><p class="mut sm" style="margin:0 0 10px">${S.meta.pin?'Tu PIN está activo: se pide al abrir Cuadra.':'Protege tu negocio con un PIN de 4 a 6 números. Se pide al abrir Cuadra.'}</p>
    <form data-form="pin"><div class="fg"><label class="f">${S.meta.pin?'Nuevo PIN':'Crear PIN'}</label><input class="in" name="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="4 a 6 números"></div>
    <div class="fg"><label class="f">Repite el PIN</label><input class="in" name="pin2" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>
@@ -1559,8 +1576,12 @@ document.addEventListener('click',async e=>{
    mvp(){mvP=d.p;render()},
    seg2(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements.type.value=d.v},
    'mov-form'(){movForm()},
+   'newcat-toggle'(){const i=$('#newcat');i.classList.toggle('hide');if(!i.classList.contains('hide'))i.focus();else i.value=''},
+   'cat-new'(){catForm()},
+   'cat-edit'(){catForm(d.id)},
+   'cat-del'(){const c=S.cats.find(x=>x.id===d.id);ask('Borrar categoría','Los movimientos que ya guardaste no cambian.','Borrar',true).then(ok=>{if(ok){S.cats=S.cats.filter(x=>x.id!==c.id);save();closeModal();render()}})},
    'close-caja'(){closeCajaForm()},
-   'caja-detail'(){const c=S.cajas.find(x=>x.id===d.id),r=c.summary||cajaSum(c);modal('Cierre del '+fmtD(c.openedAt),`<div class="list">${[['Caja inicial',r.initial],['Ventas en efectivo',r.cash],['Transferencia / datáfono',r.digital],['Fiado',r.fiado],['Abonos (efectivo)',r.abonosCash],['Gastos',-r.gastos],['Retiros',-r.egresos],['Compras en efectivo',-r.comprasCash]].map(x=>`<div class="item" style="cursor:default;padding:8px 0"><div class="grow mut">${x[0]}</div><b>${money(x[1])}</b></div>`).join('')}</div><div class="total"><span>Debía haber</span><span>${money(c.expected)}</span></div><div class="row between b"><span>Contado</span><span>${money(c.counted)}</span></div><div class="tip ${c.diff===0?'ok':'warn'} mt">${c.diff===0?'Cuadró perfecto':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}${c.note?' · '+esc(c.note):''}</div><button class="btn mt" data-act="wa-close" data-id="${c.id}">${ic('chat','sm')} Compartir por WhatsApp</button>`)},
+   'caja-detail'(){const c=S.cajas.find(x=>x.id===d.id),r=c.summary||cajaSum(c);modal('Cierre del '+fmtD(c.openedAt),`<div class="mut sm" style="margin:-4px 0 8px">Abrió: ${fmtDT(c.openedAt)}${c.closedAt?'<br>Cerró: '+fmtDT(c.closedAt):''}</div><div class="list">${[['Caja inicial',r.initial],['Ventas en efectivo',r.cash],['Transferencia / datáfono',r.digital],['Fiado',r.fiado],['Abonos (efectivo)',r.abonosCash],['Gastos',-r.gastos],['Retiros',-r.egresos],['Compras en efectivo',-r.comprasCash]].map(x=>`<div class="item" style="cursor:default;padding:8px 0"><div class="grow mut">${x[0]}</div><b>${money(x[1])}</b></div>`).join('')}</div><div class="total"><span>Debía haber</span><span>${money(c.expected)}</span></div><div class="row between b"><span>Contado</span><span>${money(c.counted)}</span></div><div class="tip ${c.diff===0?'ok':'warn'} mt">${c.diff===0?'Cuadró perfecto':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}${c.note?' · '+esc(c.note):''}</div><button class="btn mt" data-act="wa-close" data-id="${c.id}">${ic('chat','sm')} Compartir por WhatsApp</button>`)},
    'wa-close'(){const c=S.cajas.find(x=>x.id===d.id);window.open('https://wa.me/?text='+encodeURIComponent(closeText(c)),'_blank')},
    ctab(){window._ctab=d.t;render()},
    'new-purchase'(){pd=null;go('compra')},
@@ -1602,10 +1623,17 @@ document.addEventListener('submit',e=>{
   if(k==='closecaja')saveClose(f);
   if(k==='disc'){const fd=new FormData(f);cartX.dk=fd.get('dk')==='%'?'%':'$';let v=digits(fd.get('dv'));if(cartX.dk==='%')v=Math.min(100,v);cartX.dv=v;closeModal();renderCart();return}
   if(k==='dom'){cartX.dom=digits(new FormData(f).get('dom'));closeModal();renderCart();return}
+  if(k==='cat'){const fd=new FormData(f),name=(fd.get('name')||'').trim(),id=f.dataset.id;
+    if(!name)return toast('Escribe el nombre','warn');
+    if(mcats().some(x=>x.id!==id&&x.kind===fd.get('kind')&&norm(x.name)===norm(name)))return toast('Ya existe esa categoría','warn');
+    if(id){const c=S.cats.find(x=>x.id===id);if(c.name!==name)S.movements.forEach(m=>{if(m.cat===c.name)m.cat=name});c.name=name;c.kind=fd.get('kind');c.puc=(fd.get('puc')||'').trim();c.off=fd.get('on')?0:1}
+    else S.cats.push({id:uid(),name,kind:fd.get('kind'),puc:(fd.get('puc')||'').trim(),off:0});
+    save();closeModal();toast('Categoría guardada','ok');render();return}
   if(k==='exp'){const fd=new FormData(f),amount=digits(fd.get('amount')),method=fd.get('method'),c=openCaja();
     if(!amount)return toast('Escribe el valor del gasto','warn');
     if(method==='efectivo'&&!c)return toast('Abre la caja primero, o elige Transferencia','warn');
-    const cat=fd.get('cat'),det=(fd.get('concept')||'').trim();
+    let cat=fd.get('cat');const nc=(fd.get('newcat')||'').trim(),det=(fd.get('concept')||'').trim();
+    if(nc){const ex=mcats().find(x=>norm(x.name)===norm(nc)&&x.kind==='gasto');if(ex){ex.off=0;cat=ex.name}else{S.cats.push({id:uid(),name:nc,kind:'gasto',puc:'',off:0});cat=nc}}
     S.movements.push({id:uid(),ts:Date.now(),type:'gasto',cat,method,concept:det||cat,amount,cajaId:method==='efectivo'?c.id:''});
     save();closeModal();toast('Gasto guardado','ok');render();return}
   if(k==='adj'){const fd=new FormData(f),p=prod(f.dataset.id),q=dec(fd.get('qty'));if(!p||!(q>=0))return toast('Escribe una cantidad válida','warn');

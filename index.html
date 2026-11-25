@@ -1059,7 +1059,7 @@ function impApply(){
   const upStock=$('#impstock')&&$('#impstock').checked;let nw=0,up=0;
   imp.items.forEach(it=>{
     if(it.ex){const p=it.ex;if(it.price)p.price=it.price;if(it.cost)p.cost=it.cost;if(it.cat)p.cat=it.cat;if(it.min)p.min=it.min;if(upStock&&it.hasStock)p.stock=it.stock;if(it.bulk)p.bulk=true;if(it.hasIva)p.iva=it.iva;if(it.net&&it.unit){p.net=it.net;p.unit=it.unit}if(it.exp)p.exp=it.exp;up++}
-    else if(!it.skip){S.products.push({id:uid(),name:it.name,barcode:it.barcode,cat:it.cat,cost:it.cost,price:it.price,stock:it.hasStock?it.stock:0,min:it.min||3,sold:0,img:'',fav:false,bulk:it.bulk,iva:it.hasIva?it.iva:0,net:(it.net&&it.unit)?it.net:0,unit:(it.net&&it.unit)?it.unit:'',exp:it.exp||''});nw++}});
+    else if(!it.skip){S.products.push({id:uid(),name:it.name,barcode:it.barcode,cat:it.cat,cost:it.cost,price:it.price,stock:it.hasStock?it.stock:0,min:it.min||5,sold:0,img:'',fav:false,bulk:it.bulk,iva:it.hasIva?it.iva:0,net:(it.net&&it.unit)?it.net:0,unit:(it.net&&it.unit)?it.unit:'',exp:it.exp||''});nw++}});
   save();imp=null;closeModal();toast(`${nw} nuevos, ${up} actualizados`,'ok');render();
 }
 
@@ -1436,7 +1436,7 @@ function photoPick(input){
 }
 
 function productForm(id,pre={}){
-  const p=id?prod(id):null;const d=p||{name:pre.name||'',barcode:pre.barcode||'',brand:'',ref:'',cat:'',cost:0,price:0,stock:0,min:3,loc:'Piso de venta'};
+  const p=id?prod(id):null;const d=p||{name:pre.name||'',barcode:pre.barcode||'',brand:'',ref:'',cat:'',cost:0,price:0,stock:0,min:5,loc:'Piso de venta'};
   const ov=modal(p?'Editar producto':'Nuevo producto',`
    <form data-form="product" data-id="${p?p.id:''}" data-addcart="${pre.addToCart?1:''}" data-buy="${pre.buy?1:''}" data-cam="${pre.cam?1:''}">
     <div class="fg"><label class="f">Foto del producto <span class="xs">(ayuda a encontrarlo al vender)</span></label>

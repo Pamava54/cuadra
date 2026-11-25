@@ -332,6 +332,11 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
 .favchk input{width:22px;height:22px;accent-color:var(--pri)}
 .crow{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;text-align:left;cursor:pointer;min-width:0}
 .crow .grow{min-width:0}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cgrid{display:grid;gap:12px;grid-template-columns:1fr}
+.cgrid .panel h3{display:flex;align-items:center;gap:8px}
+@media (min-width:1100px){.cgrid{grid-template-columns:repeat(3,1fr);align-items:start}}
+@media (max-width:620px){.g3{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -510,6 +515,12 @@ function cajaSum(c){
   r.expected=r.initial+r.cash+r.abonosCash+r.ingresos-r.gastos-r.egresos-r.comprasCash-r.pagosProvCash;
   return r;
 }
+function cajaWin(c){
+  const a=c.openedAt,b=c.closedAt||Date.now()+1;let pEf=0,pDig=0,pCre=0,pagos=0;
+  for(const x of S.purchases){if(x.ts<a||x.ts>b)continue;if(x.method==='efectivo')pEf+=x.total;else if(x.method==='digital')pDig+=x.total;else pCre+=x.total}
+  for(const x of S.payments){if(x.void||x.type==='cliente'||x.ts<a||x.ts>b)continue;pagos+=x.amount}
+  return{pEf,pDig,pCre,pagos};
+}
 function range(k){
   const t0=sod(Date.now());
   if(k==='ayer')return[t0-DAY,t0];
@@ -598,8 +609,8 @@ const NAV=[
  {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'movimientos',l:'Movimientos',i:'swap',w:1},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
  {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
-const PARENT={compra:'compras'};
+const TITLES={home:'Inicio',vender:'Vender',precios:'Consultar precio',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',ventas:'Historial de ventas',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
+const PARENT={compra:'compras',ventas:'caja'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
 
@@ -785,6 +796,25 @@ function priceDraw(){
   cd.innerHTML=`<div class="pcardbig">${p.img?`<img class="pbig" src="${p.img}" alt="">`:''}<div class="pn">${esc(p.name)}</div><div class="pp">${money(p.price)}</div><div>${st}</div>
    <div class="mut sm" style="margin-top:12px">${p.cat?esc(p.cat)+' · ':''}${esc(p.barcode||'Sin código de barras')}</div>
    <div class="g2" style="margin-top:18px"><button class="btn pri" data-act="price-add" data-id="${p.id}">${ic('cart','sm')} Agregar a la venta</button><button class="btn soft" data-act="edit-product" data-id="${p.id}">Cambiar precio</button></div></div>`;
+}
+
+
+/* HISTORIAL DE VENTAS */
+let hvP='hoy';
+VIEWS.ventas={
+ html(){return `<div class="searchbar"><input id="hq" class="in" placeholder="Buscar por número o cliente" autocomplete="off"></div>
+  <div class="chips mt">${[['hoy','Hoy'],['ayer','Ayer'],['7d','7 días'],['mes','Este mes'],['todo','Todas']].map(x=>`<button data-act="hvp" data-p="${x[0]}" class="${hvP===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  <div class="panel mt"><div id="hlist" class="list"></div></div>`},
+ after(){hlist();$('#hq').addEventListener('input',hlist)}
+};
+function hlist(){
+  const el=$('#hlist');if(!el)return;
+  const [a,b]=range(hvP),q=norm($('#hq').value.trim().replace(/^#/,''));
+  const r=S.sales.filter(x=>x.ts>=a&&x.ts<b&&(!q||String(x.no)===q||norm((cust(x.customerId)||{}).name||'').includes(q))).sort((x,y)=>y.ts-x.ts).slice(0,200);
+  if(!r.length){el.innerHTML='<div class="empty"><div class="big">🧾</div><b>Sin ventas aquí</b>Prueba con otro período o número.</div>';return}
+  const ok=r.filter(x=>!x.void&&x.method!=='autoconsumo');
+  const M={efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio'};
+  el.innerHTML=`<div class="mut sm" style="padding:2px 4px 8px">${ok.length} ${ok.length===1?'venta':'ventas'} · ${money(sum(ok,x=>x.total))}</div>`+r.map(x=>`<button class="item" data-act="sale-detail" data-id="${x.id}"><div class="avatar">${ic('cart','sm')}</div><div class="grow"><div class="t" style="${x.void?'text-decoration:line-through;opacity:.6':''}">Venta #${x.no}${x.void?' · Anulada':''}</div><div class="s">${fmtDT(x.ts)}${x.customerId&&cust(x.customerId)?' · '+esc(cust(x.customerId).name):''}</div></div><div class="right"><div class="b">${money(x.total)}</div><span class="badge ${x.method==='fiado'?'low':'gray'}">${M[x.method]}</span></div></button>`).join('');
 }
 
 /* INVENTARIO */
@@ -1189,12 +1219,20 @@ VIEWS.caja={
   }
   const r=cajaSum(c),mv=S.movements.filter(m=>m.cajaId===c.id).sort((a,b)=>b.ts-a.ts);
   const L=(k,v,cls='')=>`<div class="row between" style="padding:7px 0;border-bottom:1px solid var(--line)"><span class="mut">${k}</span><b class="${cls}">${v}</b></div>`;
+  const w=cajaWin(c);
+  const Lh=(k,v,cls='')=>`<div class="row between" style="padding:9px 0;border-bottom:1px solid var(--line)"><span class="mut">${k}</span><b class="${cls}">${v}</b></div>`;
+  const Lt=(k,v)=>`<div class="row between" style="padding:11px 0 2px"><b>${k}</b><b style="font-size:19px">${v}</b></div>`;
   return `<div class="kpis"><div class="kpi hl"><div class="l">Debe haber en caja</div><div class="v">${money(r.expected)}</div></div><div class="kpi"><div class="l">Ventas (${r.nSales})</div><div class="v">${money(r.cash+r.digital+r.fiado)}</div></div></div>
-   <div class="g2 mt"><button class="btn soft" data-act="mov-form">${ic('plus','sm')} Movimiento</button><button class="btn pri" data-act="close-caja">Cerrar caja</button></div>
-   <div class="panel mt"><h3>Resumen · abierta ${fmtDT(c.openedAt)}</h3>
-    ${L('Caja inicial',money(r.initial))}${L('Ventas en efectivo',money(r.cash))}${L('Abonos de clientes (efectivo)',money(r.abonosCash))}${L('Otros ingresos',money(r.ingresos))}
-    ${L('Gastos','− '+money(r.gastos),'bad')}${L('Retiros / consignaciones','− '+money(r.egresos),'bad')}${L('Compras en efectivo','− '+money(r.comprasCash),'bad')}${L('Pagos a proveedores (efectivo)','− '+money(r.pagosProvCash),'bad')}
-    <div class="mut xs mt">No entran a caja: transferencias/datáfono ${money(r.digital)} · fiados ${money(r.fiado)} · consumo propio ${money(r.auto)}</div></div>
+   <div class="g3 mt"><button class="btn soft" data-act="mov-form">${ic('plus','sm')} Movimiento</button><button class="btn soft" data-act="go" data-to="ventas">${ic('list','sm')} Historial de ventas</button><button class="btn pri" data-act="close-caja">Cerrar caja</button></div>
+   <div class="cgrid mt">
+    <div class="panel"><h3>${ic('wallet','sm')} Dinero en la caja</h3><div class="mut xs" style="margin:-4px 0 6px">Abrió ${esc(S.meta.owner||'')} · ${fmtDT(c.openedAt)}</div>
+     ${Lh('Caja inicial',money(r.initial))}${Lh('Ventas en efectivo','+ '+money(r.cash))}${Lh('Abonos de clientes','+ '+money(r.abonosCash))}${Lh('Otros ingresos','+ '+money(r.ingresos))}
+     ${Lh('Gastos','− '+money(r.gastos),'bad')}${Lh('Retiros y consignaciones','− '+money(r.egresos),'bad')}${Lh('Compras en efectivo','− '+money(r.comprasCash),'bad')}${Lh('Pagos a proveedores','− '+money(r.pagosProvCash),'bad')}${Lt('Debe haber',money(r.expected))}</div>
+    <div class="panel"><h3>${ic('cart','sm')} Ventas</h3>
+     ${Lh('En efectivo',money(r.cash))}${Lh('Transferencia / datáfono',money(r.digital))}${Lh('Fiado',money(r.fiado))}${Lh('Consumo propio',money(r.auto))}${Lt('Total ventas',money(r.cash+r.digital+r.fiado))}<div class="mut xs mt">${r.nSales} ${r.nSales===1?'venta':'ventas'} · el consumo propio no se suma al total</div></div>
+    <div class="panel"><h3>${ic('bag','sm')} Compras</h3>
+     ${Lh('En efectivo',money(w.pEf))}${Lh('Transferencia',money(w.pDig))}${Lh('A crédito',money(w.pCre))}${Lh('Pagos a proveedores',money(w.pagos))}${Lt('Total compras',money(w.pEf+w.pDig+w.pCre))}</div>
+   </div>
    <div class="panel mt"><h3>Movimientos de hoy</h3>${mv.length?`<div class="list">${mv.map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(m.concept)}</div><div class="s">${{ingreso:'Ingreso',gasto:'Gasto',egreso:'Retiro'}[m.type]} · ${fmtDT(m.ts)}</div></div><div class="b ${m.type==='ingreso'?'ok':'bad'}">${m.type==='ingreso'?'+':'−'}${money(m.amount)}</div></div>`).join('')}</div>`:'<div class="empty">Sin movimientos manuales</div>'}</div>`;
  }
 };
@@ -1394,7 +1432,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
@@ -1511,6 +1549,7 @@ document.addEventListener('click',async e=>{
    'cust-detail'(){custDetail(d.id)},
    custf(){custF=d.f;render()},
    cpp(){cpP=d.p;render()},
+   hvp(){hvP=d.p;render()},
    'del-cust'(){if(custBalance(d.id)>0){toast('Tiene deuda pendiente. Cóbrala antes de eliminar.','warn');return}ask('Eliminar cliente','Se borra de tu lista.','Eliminar',true).then(ok=>{if(ok){S.customers=S.customers.filter(c=>c.id!==d.id);save();closeModal();render()}})},
    'cust-abono'(){closeModal();abonoForm(d.id,'cliente')},
    'cust-wa'(){const c=cust(d.id);window.open(waLink(c.phone,`Hola ${c.name}, te escribimos de ${S.meta.business}. Tienes un saldo pendiente de ${money(custBalance(c.id))}. ¡Gracias por tu compra y tu pronto pago!`),'_blank')},

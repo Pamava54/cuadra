@@ -303,6 +303,7 @@ const IC={
  cart:'M3 4h2l2.4 10.2a1 1 0 001 .8h8.7a1 1 0 001-.8L20 7H6.2M9 20h.01M17 20h.01',
  box:'M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8',
  list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
+ swap:'M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7',
  bag:'M6 7h12l1 13H5L6 7zM9 7a3 3 0 016 0',
  users:'M16 19v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM20 19v-1a3.5 3.5 0 00-2.5-3.3M16 4.2a3.5 3.5 0 010 6.6',
  wallet:'M3 7a2 2 0 012-2h13v4M3 7v10a2 2 0 002 2h15a1 1 0 001-1V9a1 1 0 00-1-1H5a2 2 0 01-2-1zM17 14h.01',
@@ -525,10 +526,10 @@ async function scanner(onCode,continuous){
 const NAV=[
  {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},
  {r:'productos',l:'Productos',i:'box',g:'Mi mercancía'},{r:'inventario',l:'Inventario',i:'list',w:1},{r:'compras',l:'Compras',i:'bag',w:1},{r:'proveedores',l:'Proveedores',i:'truck',w:1},
- {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
+ {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'movimientos',l:'Movimientos',i:'swap',w:1},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
  {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',reportes:'¿Cómo voy?',mas:'Más'};
+const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',movimientos:'Movimientos y gastos',reportes:'¿Cómo voy?',mas:'Más'};
 const PARENT={compra:'compras'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
@@ -619,7 +620,7 @@ const firstName=n=>{const w=(n||'').trim().split(/\s+/)[0]||'';return w.charAt(0
 VIEWS.home={
  html(){
   const [a,b]=range('hoy'),ss=salesIn(a,b),ven=sum(ss.filter(s=>s.method!=='autoconsumo'),s=>s.total);
-  const mods=[['vender','cart','Vender','Cobrar rápido'],['productos','box','Productos',`${S.products.length} creados`],['inventario','list','Inventario','Lo que te queda'],['compras','bag','Compras','Lo que te llega'],['proveedores','truck','Proveedores','A quién le debes'],['clientes','users','Clientes y fiados','Quién te debe'],['caja','wallet','Mi caja','Abrir, mover y cerrar'],['reportes','chart','¿Cómo voy?','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
+  const mods=[['vender','cart','Vender','Cobrar rápido'],['productos','box','Productos',`${S.products.length} creados`],['inventario','list','Inventario','Lo que te queda'],['compras','bag','Compras','Lo que te llega'],['proveedores','truck','Proveedores','A quién le debes'],['clientes','users','Clientes y fiados','Quién te debe'],['caja','wallet','Mi caja','Abrir, mover y cerrar'],['movimientos','swap','Movimientos y gastos','Todo lo que entra y sale'],['reportes','chart','¿Cómo voy?','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
   const tips=insights();
   return `
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
@@ -637,6 +638,53 @@ VIEWS.home={
  }
 };
 
+
+
+/* MOVIMIENTOS */
+let mvP='hoy';
+const EXP_CATS=['Arriendo','Servicios (luz, agua, internet)','Nómina y pagos a personal','Transporte y domicilios','Bolsas y empaques','Mantenimiento','Publicidad','Impuestos','Otros gastos'];
+function mvRows(a,b){
+  const R=[],M={efectivo:'Efectivo',digital:'Transferencia',fiado:'Fiado',autoconsumo:'Consumo propio',credito:'A crédito'};
+  for(const x of S.sales){if(x.void||x.ts<a||x.ts>=b)continue;
+    const fl=(x.method==='efectivo'||x.method==='digital')?'in':'n';
+    R.push({ts:x.ts,fl,amt:x.total,ic:'cart',t:'Venta #'+x.no,s:M[x.method]+(x.customerId&&cust(x.customerId)?' · '+cust(x.customerId).name:''),act:'sale-detail',id:x.id})}
+  for(const x of S.payments){if(x.void||x.ts<a||x.ts>=b)continue;
+    if(x.type==='cliente')R.push({ts:x.ts,fl:'in',amt:x.amount,ic:'users',t:'Abono de '+((cust(x.refId)||{}).name||'cliente'),s:M[x.method]||x.method});
+    else R.push({ts:x.ts,fl:'out',amt:x.amount,ic:'truck',t:'Pago a '+((supp(x.refId)||{}).name||'proveedor'),s:M[x.method]||x.method})}
+  for(const x of S.purchases){if(x.ts<a||x.ts>=b)continue;
+    R.push({ts:x.ts,fl:x.method==='credito'?'n':'out',amt:x.total,ic:'bag',t:'Compra a '+((supp(x.supplierId)||{}).name||'proveedor'),s:M[x.method],act:'purchase-detail',id:x.id})}
+  for(const x of S.movements){if(x.ts<a||x.ts>=b)continue;
+    const T={ingreso:['in','Ingreso'],gasto:['out','Gasto'],egreso:['out','Retiro']}[x.type]||['out','Movimiento'];
+    R.push({ts:x.ts,fl:T[0],amt:x.amount,ic:'wallet',t:x.concept,s:T[1]+(x.cat?' · '+x.cat:'')+(x.method==='digital'?' · Transferencia':''),gasto:x.type==='gasto'})}
+  return R.sort((p,q)=>q.ts-p.ts);
+}
+VIEWS.movimientos={
+ html(){
+  const [a,b]=range(mvP),R=mvRows(a,b),ss=salesIn(a,b);
+  const ent=sum(R.filter(r=>r.fl==='in'),r=>r.amt),sal=sum(R.filter(r=>r.fl==='out'),r=>r.amt);
+  const gast=R.filter(r=>r.gasto),tg=sum(gast,r=>r.amt),gan=profit(ss),ut=gan-tg;
+  const cats={};S.movements.filter(m=>m.type==='gasto'&&m.ts>=a&&m.ts<b).forEach(m=>{const k=m.cat||'Otros gastos';cats[k]=(cats[k]||0)+m.amount});
+  const cl=Object.entries(cats).sort((x,y)=>y[1]-x[1]),mx=cl.length?cl[0][1]:1;
+  let last='';
+  const rows=R.map(r=>{const day=fmtD(r.ts),h=(b-a>DAY&&day!==last)?`<div class="mut xs" style="padding:12px 4px 2px;font-weight:800">${day}</div>`:'';last=day;
+    const amt=r.fl==='in'?`<div class="b ok">+ ${money(r.amt)}</div>`:r.fl==='out'?`<div class="b bad">− ${money(r.amt)}</div>`:`<div class="b mut">${money(r.amt)}</div><div class="xs mut">no mueve la caja</div>`;
+    return h+`<${r.act?'button':'div'} class="item" ${r.act?`data-act="${r.act}" data-id="${r.id}"`:'style="cursor:default"'}><div class="avatar">${ic(r.ic,'sm')}</div><div class="grow"><div class="t">${esc(r.t)}</div><div class="s">${fmtDT(r.ts)} · ${esc(r.s)}</div></div><div class="right">${amt}</div></${r.act?'button':'div'}>`}).join('');
+  return `<button class="btn pri big" data-act="exp-form">${ic('plus','sm')} Registrar un gasto</button>
+  <div class="chips mt">${[['hoy','Hoy'],['ayer','Ayer'],['7d','7 días'],['mes','Este mes']].map(x=>`<button data-act="mvp" data-p="${x[0]}" class="${mvP===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  <div class="kpis mt"><div class="kpi"><div class="l">Entró</div><div class="v ok">${money(ent)}</div></div><div class="kpi"><div class="l">Salió</div><div class="v bad">${money(sal)}</div></div><div class="kpi"><div class="l">Gastos del negocio</div><div class="v">${money(tg)}</div></div><div class="kpi hl"><div class="l">Utilidad real</div><div class="v">${money(ut)}</div></div></div>
+  <p class="mut xs" style="margin:6px 2px 0">Utilidad real = lo que ganaste vendiendo (${money(gan)}) menos tus gastos (${money(tg)}).</p>
+  ${cl.length?`<div class="panel mt"><h3>En qué gastas</h3>${cl.map(([k,v])=>`<div style="margin:8px 0"><div class="row between"><span>${esc(k)}</span><b>${money(v)}</b></div><div style="height:7px;border-radius:7px;background:var(--pri-l);margin-top:4px"><i style="display:block;height:100%;width:${Math.max(4,Math.round(v/mx*100))}%;border-radius:7px;background:var(--acc)"></i></div></div>`).join('')}</div>`:''}
+  <div class="panel mt"><h3>Todo lo que pasó</h3>${R.length?`<div class="list">${rows}</div>`:'<div class="empty"><div class="big">🧾</div><b>Sin movimientos en este período</b>Aquí aparece cada venta, compra, abono y gasto.</div>'}</div>`;
+ }
+};
+function expForm(){
+  modal('Registrar un gasto',`<form data-form="exp">
+   <div class="fg"><label class="f">¿En qué fue?</label><select class="in" name="cat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+   <div class="fg"><label class="f">Detalle (opcional)</label><input class="in" name="concept" placeholder="Ej: Recibo de la luz de noviembre"></div>
+   <div class="fg"><label class="f">Valor</label><input class="in money" name="amount" inputmode="numeric" required placeholder="0" autofocus></div>
+   <div class="fg"><label class="f">¿Cómo lo pagaste?</label><div class="pm"><button type="button" class="on" data-act="segf" data-f="method" data-v="efectivo">Efectivo<small>Sale de la caja</small></button><button type="button" data-act="segf" data-f="method" data-v="digital">Transferencia<small>No toca la caja</small></button></div><input type="hidden" name="method" value="efectivo"></div>
+   <button class="btn pri big">Guardar gasto</button></form>`);
+}
 
 /* INVENTARIO */
 let invF='todos';
@@ -1150,7 +1198,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
@@ -1258,6 +1306,9 @@ document.addEventListener('click',async e=>{
    'cust-abono'(){closeModal();abonoForm(d.id,'cliente')},
    'cust-wa'(){const c=cust(d.id);window.open(waLink(c.phone,`Hola ${c.name}, te escribimos de ${S.meta.business}. Tienes un saldo pendiente de ${money(custBalance(c.id))}. ¡Gracias por tu compra y tu pronto pago!`),'_blank')},
    seg(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements[d.k].value=d.v},
+   segf(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements[d.f].value=d.v},
+   'exp-form'(){expForm()},
+   mvp(){mvP=d.p;render()},
    seg2(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements.type.value=d.v},
    'mov-form'(){movForm()},
    'close-caja'(){closeCajaForm()},
@@ -1301,6 +1352,12 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
+  if(k==='exp'){const fd=new FormData(f),amount=digits(fd.get('amount')),method=fd.get('method'),c=openCaja();
+    if(!amount)return toast('Escribe el valor del gasto','warn');
+    if(method==='efectivo'&&!c)return toast('Abre la caja primero, o elige Transferencia','warn');
+    const cat=fd.get('cat'),det=(fd.get('concept')||'').trim();
+    S.movements.push({id:uid(),ts:Date.now(),type:'gasto',cat,method,concept:det||cat,amount,cajaId:method==='efectivo'?c.id:''});
+    save();closeModal();toast('Gasto guardado','ok');render();return}
   if(k==='adj'){const fd=new FormData(f),p=prod(f.dataset.id),q=dec(fd.get('qty'));if(!p||!(q>=0))return toast('Escribe una cantidad válida','warn');
     (S.adjusts=S.adjusts||[]).push({id:uid(),ts:Date.now(),pid:p.id,name:p.name,before:p.stock,after:q,why:fd.get('why')});p.stock=q;save();closeModal();toast('Cantidad corregida','ok');render();return}
   if(k==='pin'){const fd=new FormData(f),a=(fd.get('pin')||'').trim(),b=(fd.get('pin2')||'').trim();

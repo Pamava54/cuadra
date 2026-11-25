@@ -354,6 +354,7 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
 .lbl.s-g{width:90mm;height:55mm;padding:3mm}.s-g .nm{font-size:13pt}.s-g .pr{font-size:32pt}.s-g .pu{font-size:10pt}.s-g .bt{font-size:9pt}.s-g .biz{font-size:8pt}.s-g .dt{font-size:8pt}
 .lbl.cod .nm{font-size:7pt;font-weight:600}.lbl.cod.s-g .nm{font-size:11pt}
 @media print{#print.lab{width:auto;font-family:system-ui,Arial,sans-serif;font-size:inherit}#print.lab .lbl{border-color:#bbb}@page{margin:6mm}}
+html.big body{zoom:1.2}
 </style>
 </head>
 <body>
@@ -652,6 +653,7 @@ function shell(){
 }
 function render(){
   if(!S.meta.business){return onboarding()}
+  applyBig();
   if(!$('#view'))shell();
   const {r,q}=parseHash();
   const R=VIEWS[r]||VIEWS.home;
@@ -923,7 +925,7 @@ function retDraw(){
    <div class="total"><span>A devolver</span><span>${money(ref)}</span></div><button class="btn pri big" data-act="ret-ok" ${ref>0?'':'disabled'}>Registrar devolución</button>`;
 }
 function saveReturn(){
-  const s=S.sales.find(x=>x.id===rt.id),items=[];s.items.forEach((i,k)=>{if(rt.q[k]>0)items.push({pid:i.pid,name:i.name,qty:-rt.q[k],price:i.price,cost:i.cost,bulk:i.bulk})});
+  const s=S.sales.find(x=>x.id===rt.id),items=[];s.items.forEach((i,k)=>{if(rt.q[k]>0)items.push({pid:i.pid,name:i.name,qty:-rt.q[k],price:i.price,cost:i.cost,bulk:i.bulk,iva:i.iva||0})});
   if(!items.length)return;const ref=retCalc(),m=rt.m,back=rt.back;
   ensureCaja().then(()=>{const caja=openCaja();if(!caja)return;
     const r={id:uid(),no:++S.counters.sale,ts:Date.now(),items,total:-ref,cost:sum(items,i=>i.cost*i.qty),method:m,customerId:s.customerId||'',received:0,change:0,cajaId:caja.id,subtotal:-ref,discount:0,delivery:0,ret:true,ofNo:s.no,ofId:s.id};
@@ -1022,6 +1024,26 @@ function impApply(){
     if(it.ex){const p=it.ex;if(it.price)p.price=it.price;if(it.cost)p.cost=it.cost;if(it.cat)p.cat=it.cat;if(it.min)p.min=it.min;if(upStock&&it.hasStock)p.stock=it.stock;up++}
     else if(!it.skip){S.products.push({id:uid(),name:it.name,barcode:it.barcode,cat:it.cat,cost:it.cost,price:it.price,stock:it.hasStock?it.stock:0,min:it.min||3,sold:0,img:'',fav:false});nw++}});
   save();imp=null;closeModal();toast(`${nw} nuevos, ${up} actualizados`,'ok');render();
+}
+
+
+/* LETRA GRANDE + GUÍA */
+const applyBig=()=>document.documentElement.classList.toggle('big',!!S.meta.big);
+const GUIDE=[
+ {e:'👋',t:'Bienvenido a Cuadra',x:'Tu negocio al día, sin enredos. En 5 pasos cortos te mostramos cómo se usa. Puedes volver a verlos cuando quieras desde Ajustes.',big:true},
+ {e:'📦',t:'1. Crea tus productos',x:'En Productos toca “Nuevo”: escribe el nombre, el precio y cuánto tienes. Puedes escanear el código de barras, tomarle foto o importar toda tu lista desde Excel.'},
+ {e:'🛒',t:'2. Vende rápido',x:'En Vender escanea el producto o escribe su nombre. Cuando termines, toca Efectivo, Transferencia o Fiado. Cuadra te dice cuánto devolver.'},
+ {e:'💵',t:'3. Abre y cierra tu caja',x:'Abre la caja con el dinero con que empiezas el día. En Mi caja ves cuánto debe haber. Al cerrar, cuentas la plata y Cuadra te dice si cuadró.'},
+ {e:'👥',t:'4. Controla los fiados',x:'En Clientes ves quién te debe. Con “Cobrar por WhatsApp” les mandas el recordatorio listo, y registras sus abonos.'},
+ {e:'📈',t:'5. Mira cómo vas',x:'En ¿Cómo voy? ves lo que vendes y ganas. Una vez por semana, en Más, descarga tu copia de seguridad para no perder nada.'}
+];
+function guide(i=0){S.meta.guide=1;save();if(!$('#gd'))modal('Guía rápida','<div id="gd"></div>');gdDraw(i)}
+function gdDraw(i){
+  const g=GUIDE[i],el=$('#gd');if(!el)return;
+  el.innerHTML=`<div class="center" style="padding:6px 4px"><div style="font-size:54px">${g.e}</div><h3 style="font-size:21px;margin:8px 0">${g.t}</h3><p class="mut" style="font-size:16px;line-height:1.5;margin:0 0 12px">${g.x}</p>
+   ${g.big?`<button class="btn soft" data-act="big-toggle" data-gd="${i}">${S.meta.big?'✔ Letra grande activada':'Activar letra grande'}</button>`:''}
+   <div class="row" style="justify-content:center;gap:6px;margin:14px 0">${GUIDE.map((_,k)=>`<i style="width:${k===i?22:8}px;height:8px;border-radius:8px;background:${k===i?'var(--pri)':'var(--line)'}"></i>`).join('')}</div>
+   <div class="g2">${i>0?`<button class="btn" data-act="gd-go" data-i="${i-1}">Atrás</button>`:'<button class="btn" data-act="close">Saltar</button>'}${i<GUIDE.length-1?`<button class="btn pri" data-act="gd-go" data-i="${i+1}">Siguiente</button>`:'<button class="btn pri" data-act="close">¡Empezar!</button>'}</div></div>`;
 }
 
 /* INVENTARIO */
@@ -1233,7 +1255,7 @@ function finishSale(){
   if(pay.m==='efectivo'){received=digits($('#recv').value)||t;if(received<t){toast('El dinero recibido es menor al total','bad');return}change=received-t}
   if(pay.m==='fiado'){const cid=$('#fcust')?$('#fcust').value:pay.cust;if(!cid){toast('Elige a qué cliente le fías','bad');return}pay.cust=cid}
   const caja=openCaja();if(!caja){toast('Abre la caja primero','bad');return}
-  const sale={id:uid(),no:++S.counters.sale,ts:Date.now(),items:cart.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.price,cost:l.cost,bulk:!!l.bulk})),total:t,cost:sum(cart,l=>l.cost*l.qty),method:pay.m,customerId:pay.m==='fiado'?pay.cust:(cartX.cust||''),received,change,cajaId:caja.id,subtotal:cartSub(),discount:cartDisc(),delivery:cartX.dom||0};
+  const sale={id:uid(),no:++S.counters.sale,ts:Date.now(),items:cart.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.price,cost:l.cost,bulk:!!l.bulk,iva:(prod(l.pid)||{}).iva||0})),total:t,cost:sum(cart,l=>l.cost*l.qty),method:pay.m,customerId:pay.m==='fiado'?pay.cust:(cartX.cust||''),received,change,cajaId:caja.id,subtotal:cartSub(),discount:cartDisc(),delivery:cartX.dom||0};
   for(const l of cart){const p=prod(l.pid);if(p){p.stock=Math.round((p.stock-l.qty)*1000)/1000;p.sold=(p.sold||0)+l.qty}}
   S.sales.push(sale);save();
   const neg=sale.items.filter(i=>prod(i.pid)&&prod(i.pid).stock<0).map(i=>i.name);
@@ -1255,10 +1277,14 @@ function logoPick(input){
     const url=c.toDataURL('image/png');$('#logov').value=url;$('#lprev').innerHTML=`<img src="${url}" alt="" style="object-fit:contain">`;$('#lquit').classList.remove('hide')};im.onerror=()=>toast('No se pudo leer la imagen','bad');im.src=rd.result};
   rd.readAsDataURL(f);input.value='';
 }
+function saleIva(s){const by={};if(s.void||s.method==='autoconsumo')return by;const f=s.subtotal?(s.subtotal-(s.discount||0))/s.subtotal:1;
+  s.items.forEach(i=>{const r=i.iva||0,g=i.price*i.qty*f,b=g/(1+r/100),o=by[r]=by[r]||{base:0,iva:0};o.base+=b;o.iva+=g-b});return by}
+function ivaLines(s){if(!S.meta.ivaOn)return '';const by=saleIva(s),ks=Object.keys(by).map(Number).sort((a,b)=>a-b);if(!ks.length)return '';
+  return '<hr>'+ks.map(r=>r?`<div class="l"><span>Base IVA ${r}%</span><span>${money(Math.round(by[r].base))}</span></div><div class="l"><span>IVA ${r}%</span><span>${money(Math.round(by[r].iva))}</span></div>`:`<div class="l"><span>Sin IVA</span><span>${money(Math.round(by[r].base))}</span></div>`).join('')+'<div style="text-align:center;font-size:11px">Precios con IVA incluido</div>'}
 function receiptHTML(s){
   return `${bizHead()}<div class="center" style="text-align:center">Recibo #${s.no} · ${fmtDT(s.ts)}</div><hr>
   ${s.items.map(i=>`<div class="l"><span>${qfmt(i.qty)}${i.bulk?' kg':''} x ${esc(i.name)}</span><span>${money(Math.round(i.price*i.qty))}</span></div>`).join('')}<hr>
-  ${s.discount||s.delivery?`<div class="l"><span>Subtotal</span><span>${money(s.subtotal)}</span></div>`:''}${s.discount?`<div class="l"><span>Descuento</span><span>− ${money(s.discount)}</span></div>`:''}${s.delivery?`<div class="l"><span>Domicilio</span><span>${money(s.delivery)}</span></div>`:''}<div class="l"><b>TOTAL</b><b>${money(s.total)}</b></div>
+  ${s.discount||s.delivery?`<div class="l"><span>Subtotal</span><span>${money(s.subtotal)}</span></div>`:''}${s.discount?`<div class="l"><span>Descuento</span><span>− ${money(s.discount)}</span></div>`:''}${s.delivery?`<div class="l"><span>Domicilio</span><span>${money(s.delivery)}</span></div>`:''}<div class="l"><b>TOTAL</b><b>${money(s.total)}</b></div>${ivaLines(s)}
   ${s.method==='efectivo'?`<div class="l"><span>Recibido</span><span>${money(s.received)}</span></div><div class="l"><span>Cambio</span><span>${money(s.change)}</span></div>`:''}
   <hr><div style="text-align:center">¡Gracias por su compra!</div>`;
 }
@@ -1326,6 +1352,7 @@ function productForm(id,pre={}){
     <label class="favchk"><input type="checkbox" name="bulk" ${d.bulk?'checked':''}> <span>⚖️ Se vende por peso: el precio de venta es <b>por kilo</b> y el stock va en kilos</span></label>
     <div class="fg"><label class="f">Precio por mayor <span class="xs">(opcional: precio especial desde cierta cantidad)</span></label><div class="g2"><input class="in" name="wsmin" inputmode="decimal" value="${d.ws&&d.ws.min?qfmt(d.ws.min):''}" placeholder="Desde cuántas"><input class="in money" name="wsprice" inputmode="numeric" value="${d.ws&&d.ws.price?fmtInt(d.ws.price):''}" placeholder="Precio c/u"></div></div>
     <div class="fg"><label class="f">Fecha de vencimiento <span class="xs">(opcional)</span></label><input class="in" type="date" name="exp" value="${esc(d.exp||'')}"></div>
+    ${S.meta.ivaOn?`<div class="fg"><label class="f">IVA del producto <span class="xs">(el precio de venta ya lo incluye)</span></label><select class="in" name="iva">${[[0,'Sin IVA (excluido o exento)'],[5,'IVA 5%'],[19,'IVA 19%']].map(o=>`<option value="${o[0]}" ${(p?(d.iva||0):19)===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`:''}
     <div class="g2"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
     <div class="fg"><label class="f">Avisar cuando queden</label><input class="in" name="min" inputmode="decimal" value="${qfmt(d.min)}"></div></div>
     ${(()=>{const L=catsFor(),cur=d.cat||'',custom=!!cur&&!L.includes(cur);
@@ -1353,6 +1380,7 @@ function marginHint(){
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
   const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':'',bulk:fd.get('bulk')==='on',exp:fd.get('exp')||'',ws:(dec(fd.get('wsmin'))>0&&digits(fd.get('wsprice'))>0)?{min:dec(fd.get('wsmin')),price:digits(fd.get('wsprice'))}:null};
+  if(fd.has('iva'))o.iva=+fd.get('iva');
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
   if(o.barcode){const dup=S.products.find(p=>p.barcode===o.barcode&&p.id!==id);if(dup){toast(`Ese código ya es de “${dup.name}”`,'bad');return}}
@@ -1607,9 +1635,9 @@ function suppDetail(id){
 let rep={tab:'resumen',rng:'hoy'},lastTable=null;
 VIEWS.reportes={
  html(){
-  const tabs=[['resumen','Resumen'],['ventas','Ventas'],['productos','Por producto'],['compras','Compras'],['gastos','Gastos'],['ingresos','Ingresos'],['consumo','Consumo propio'],['cartera','Cartera'],['inventario','Inventario'],['caja','Cajas']];
+  const tabs=[['resumen','Resumen'],['ventas','Ventas'],['productos','Por producto'],['compras','Compras'],['gastos','Gastos'],['ingresos','Ingresos'],...(S.meta.ivaOn?[['iva','IVA']]:[]),['consumo','Consumo propio'],['cartera','Cartera'],['inventario','Inventario'],['caja','Cajas']];
   return `<div class="chips">${tabs.map(t=>`<button data-act="rtab" data-t="${t[0]}" class="${rep.tab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>
-  ${['resumen','ventas','productos','compras','gastos','ingresos','consumo'].includes(rep.tab)?`<div class="chips mt">${[['hoy','Hoy'],['ayer','Ayer'],['7d','7 días'],['mes','Este mes'],['todo','Todo']].map(t=>`<button data-act="rrng" data-r="${t[0]}" class="${rep.rng===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>`:''}
+  ${['resumen','ventas','productos','compras','gastos','ingresos','iva','consumo'].includes(rep.tab)?`<div class="chips mt">${[['hoy','Hoy'],['ayer','Ayer'],['7d','7 días'],['mes','Este mes'],['todo','Todo']].map(t=>`<button data-act="rrng" data-r="${t[0]}" class="${rep.rng===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>`:''}
   <div id="rbody" class="mt"></div>`;
  },
  after(){repBody()}
@@ -1655,6 +1683,12 @@ function repBody(){
     ${cl.length?`<div class="panel"><h3>${kind==='gasto'?'En qué gastas':'De dónde entra'}</h3>${cl.map(([k,v])=>`<div class="mt"><div class="row between sm"><span>${esc(k)}</span><b>${money(v)}</b></div><div class="hbar"><i style="width:${v/mx*100}%"></i></div></div>`).join('')}</div>`:''}
     <div class="panel">${rows.length?`<div class="list">${rows.slice(0,150).map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(m.concept||m.cat||'')}</div><div class="s">${fmtDT(m.ts)}${m.cat?' · '+esc(m.cat):''}</div></div><div class="b">${money(m.amount)}</div></div>`).join('')}</div>`:'<div class="empty">Nada registrado en este período</div>'}</div>`;
   }
+  if(rep.tab==='iva'){
+    const by={};ss.forEach(x=>{const m=saleIva(x);for(const r in m){const o=by[r]=by[r]||{base:0,iva:0};o.base+=m[r].base;o.iva+=m[r].iva}});
+    const ks=Object.keys(by).map(Number).sort((a,b)=>a-b),tb=sum(ks,r=>by[r].base),ti=sum(ks,r=>by[r].iva);
+    lastTable={name:'iva_ventas',head:['Tarifa','Base','IVA','Total'],rows:ks.map(r=>[r+'%',Math.round(by[r].base),Math.round(by[r].iva),Math.round(by[r].base+by[r].iva)])};
+    el.innerHTML=`<div class="kpis"><div class="kpi hl"><div class="l">IVA en tus ventas</div><div class="v">${money(Math.round(ti))}</div></div><div class="kpi"><div class="l">Base (ventas sin el IVA)</div><div class="v">${money(Math.round(tb))}</div></div></div><div class="row between mt mb"><b>Detalle por tarifa</b>${csvBtn()}</div><div class="panel scroll-x">${ks.length?`<table class="t"><tr><th>Tarifa</th><th class="r">Base</th><th class="r">IVA</th><th class="r">Total</th></tr>${ks.map(r=>`<tr><td>${r?r+'%':'Sin IVA'}</td><td class="r">${money(Math.round(by[r].base))}</td><td class="r">${money(Math.round(by[r].iva))}</td><td class="r">${money(Math.round(by[r].base+by[r].iva))}</td></tr>`).join('')}</table><p class="mut xs" style="margin:10px 4px 0">Calculado con el IVA incluido en el precio de cada producto. Confírmalo con tu contador antes de declarar.</p>`:'<div class="empty">Sin ventas en este período</div>'}</div>`;
+  }
   if(rep.tab==='consumo'){
     const rows=S.sales.filter(x=>x.method==='autoconsumo'&&!x.void&&x.ts>=a&&x.ts<b).sort((x,y)=>y.ts-x.ts);
     lastTable={name:'consumo_propio',head:['Fecha','Producto','Cantidad','Valor al costo'],rows:rows.flatMap(x=>x.items.map(i=>[fmtDT(x.ts),i.name,i.qty,i.cost*i.qty]))};
@@ -1691,7 +1725,8 @@ VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
   return `<div class="cards"><a class="mod" data-act="go" data-to="precios"><div class="ic">${ic('tag','lg')}</div><b>Consultar precio</b><span>Escanea y mira el precio</span></a><a class="mod" data-act="go" data-to="etiquetas"><div class="ic">${ic('tag','lg')}</div><b>Etiquetas</b><span>Precio y código de barras</span></a><a class="mod" data-act="go" data-to="pedido"><div class="ic">${ic('truck','lg')}</div><b>Pedido sugerido</b><span>Lo que toca pedir</span></a><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="ventas"><div class="ic">${ic('list','lg')}</div><b>Historial de ventas</b><span>Buscar y reimprimir</span></a><a class="mod" data-act="go" data-to="movimientos"><div class="ic">${ic('swap','lg')}</div><b>Movimientos y gastos</b><span>Todo lo que entra y sale</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
-  <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
+  <div class="panel mt2"><h3>Ayuda y pantalla</h3><div class="g2"><button class="btn ${S.meta.big?'pri':'soft'}" data-act="big-toggle">${S.meta.big?'✔ Letra grande':'Letra grande'}</button><button class="btn soft" data-act="guide-open">Ver la guía rápida</button></div><p class="mut xs" style="margin:8px 2px 0">La letra grande agranda todo para leer mejor.</p></div>
+  <div class="panel"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
    <div class="fg"><label class="f">Margen de ganancia por defecto (%)</label><input class="in" name="defMargin" inputmode="decimal" value="${S.meta.defMargin?String(S.meta.defMargin).replace('.',','):''}" placeholder="Ej: 20"><p class="mut xs" style="margin:6px 2px 0">Se pone solo al crear productos nuevos. Puedes cambiarlo en cada producto.</p></div>
@@ -1708,7 +1743,7 @@ VIEWS.mas={
    <div class="fg"><label class="f">Logo (sale en tus recibos)</label><div class="pphoto"><div class="pprev" id="lprev">${S.meta.logo?`<img src="${S.meta.logo}" alt="" style="object-fit:contain">`:ic('camera','lg')}</div><div class="pbtns"><label class="btn soft" for="lfile">Elegir imagen</label><button type="button" class="btn sm ${S.meta.logo?'':'hide'}" id="lquit" data-act="logo-del">Quitar</button></div><input type="file" id="lfile" accept="image/*" class="hide"><input type="hidden" name="logo" id="logov" value="${S.meta.logo||''}"></div></div>
    <div class="fg"><label class="f">Celular o teléfono</label><input class="in" name="phone" inputmode="tel" value="${esc(S.meta.phone||'')}" placeholder="Ej: 3001234567"></div>
    <div class="fg"><label class="f">Dirección</label><input class="in" name="address" value="${esc(S.meta.address||'')}" placeholder="Ej: Cra 5 # 10-20, Ibagué"></div>
-   <div class="fg"><label class="f">NIT o cédula (opcional)</label><input class="in" name="nit" value="${esc(S.meta.nit||'')}" placeholder="Para tu contador"></div>${typeSelectHTML(S.meta.type)}<p class="mut xs" style="margin:-6px 2px 12px">El tipo de negocio define las categorías que ves al crear productos.</p><button class="btn soft">Guardar cambios</button></form></div>
+   <div class="fg"><label class="f">NIT o cédula (opcional)</label><input class="in" name="nit" value="${esc(S.meta.nit||'')}" placeholder="Para tu contador"></div>${typeSelectHTML(S.meta.type)}<p class="mut xs" style="margin:-6px 2px 12px">El tipo de negocio define las categorías que ves al crear productos.</p><label class="favchk"><input type="checkbox" name="ivaon" ${S.meta.ivaOn?'checked':''}> <span>Mi negocio cobra IVA (muestra el IVA en recibos y reportes)</span></label><button class="btn soft">Guardar cambios</button></form></div>
   <div class="panel"><h3>Modo práctica</h3><p class="mut sm" style="margin:0 0 10px">Carga productos, clientes y ventas de ejemplo para aprender a usar Cuadra sin riesgo. Reemplaza lo que tengas.</p><button class="btn" data-act="load-demo">Cargar datos de ejemplo</button></div>
   <div class="panel"><h3>Instalar en tu equipo</h3><p class="mut sm" style="margin:0">En el celular: menú del navegador → <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>. Después funciona sin internet.</p></div>
   <div class="panel"><h3>Zona delicada</h3><button class="btn danger" data-act="wipe">${ic('trash','sm')} Borrar todos mis datos</button></div>
@@ -1730,14 +1765,186 @@ async function restoreFile(file){
 }
 
 /* ---------- datos de ejemplo ---------- */
+
+const DEMOS={
+panaderia:`Pan francés|300|500|80|Pan|0
+Pan de bono|900|1500|40|Pan|0
+Almojábana|1000|1600|30|Pan|0
+Croissant|1800|3000|20|Hojaldres y empanadas|19
+Empanada de pollo|1400|2500|35|Hojaldres y empanadas|19
+Hojaldre de queso|1500|2600|25|Hojaldres y empanadas|19
+Torta de chocolate (porción)|2200|4500|14|Pasteles y tortas|19
+Ponqué de vainilla|2800|4500|16|Galletas y ponqués|19
+Brownie|1700|3200|18|Postres|19
+Galletas de mantequilla|900|1800|30|Galletas y ponqués|19
+Tinto|400|1500|60|Bebidas calientes|19
+Capuchino|1500|4000|40|Bebidas calientes|19
+Chocolate caliente|1300|3500|40|Bebidas calientes|19
+Jugo natural|1500|3500|30|Bebidas frías|19
+Gaseosa personal|1500|2800|36|Bebidas frías|19
+Yogur|1700|3000|20|Lácteos|0
+Sándwich de jamón y queso|3200|6500|12|Hojaldres y empanadas|19
+Agua 600 ml|900|1800|3|Bebidas frías|19`,
+comidas:`Hamburguesa sencilla|6500|12000|30|Hamburguesas|0
+Hamburguesa doble|9500|17000|25|Hamburguesas|0
+Perro caliente|4500|9000|30|Perros calientes|0
+Salchipapa|5500|11000|25|Salchipapas|0
+Pizza personal|7000|14000|20|Pizzas|0
+Alitas x6|7500|14500|20|Pollo y alitas|0
+Nuggets x8|5500|11000|20|Pollo y alitas|0
+Papas fritas|2500|6000|40|Acompañamientos|0
+Aros de cebolla|3000|6500|25|Acompañamientos|0
+Combo hamburguesa|9500|18000|20|Combos|0
+Gaseosa personal|1500|3500|48|Bebidas|0
+Limonada|1200|4000|30|Bebidas|0
+Jugo en leche|2200|5500|24|Bebidas|0
+Adicional de queso|1200|2500|40|Adicionales|0
+Agua 600 ml|900|2500|3|Bebidas|0`,
+drogueria:`Acetaminofén 500 mg x10|900|2000|60|Medicamentos de venta libre|0
+Ibuprofeno 400 mg x10|1500|3000|40|Medicamentos de venta libre|0
+Loratadina 10 mg x10|1200|2800|30|Medicamentos de venta libre|0
+Suero oral|2200|4000|25|Primeros auxilios|0
+Alcohol 350 ml|2300|4000|30|Primeros auxilios|19
+Gasas estériles x10|1500|3000|30|Primeros auxilios|19
+Curitas x20|1600|3200|25|Primeros auxilios|19
+Termómetro digital|9000|16000|8|Dispositivos médicos|19
+Vitamina C x30|6000|11000|15|Vitaminas y suplementos|19
+Multivitamínico x30|11000|19000|12|Vitaminas y suplementos|19
+Pañales etapa 2 x30|28000|38000|8|Bebé y maternidad|19
+Crema dental|3200|5200|24|Cuidado personal|19
+Jabón antibacterial|3000|5000|20|Higiene|19
+Protector solar FPS 50|18000|29000|6|Cuidado personal|19
+Tapabocas x50|7000|12000|10|Higiene|19
+Gel antibacterial 250 ml|3000|5500|3|Higiene|19`,
+licorera:`Cerveza Águila lata|2300|3200|96|Cervezas|19
+Cerveza Poker botella|2200|3000|72|Cervezas|19
+Cerveza Club Colombia|3300|4800|48|Cervezas|19
+Aguardiente 750 ml|42000|58000|12|Aguardiente y ron|19
+Aguardiente media|23000|32000|18|Aguardiente y ron|19
+Ron 750 ml|52000|72000|10|Aguardiente y ron|19
+Whisky 750 ml|85000|120000|6|Whisky y brandy|19
+Vino tinto|22000|34000|10|Vinos|19
+Gaseosa 1,5 L|4200|5500|24|Gaseosas y mezcladores|19
+Energizante|3500|5500|20|Gaseosas y mezcladores|19
+Agua 600 ml|1100|1800|36|Gaseosas y mezcladores|19
+Papas fritas|1900|2800|26|Snacks|19
+Maní|1200|2000|30|Snacks|19
+Hielo (bolsa)|900|1500|3|Hielo|19`,
+belleza:`Shampoo 400 ml|8000|14000|14|Productos de venta|19
+Acondicionador 400 ml|8500|15000|12|Productos de venta|19
+Gel para cabello|4500|8000|20|Productos de venta|19
+Cera moldeadora|7000|13000|10|Productos de venta|19
+Tinte para cabello|6500|12000|16|Productos de venta|19
+Esmalte|2500|5000|30|Productos de venta|19
+Crema facial|9000|18000|10|Productos de venta|19
+Corte de cabello (servicio)|0|20000|999|Cortes|0
+Corte y barba (servicio)|0|30000|999|Barba|0
+Manicure (servicio)|3000|25000|999|Manicure|0
+Peinado (servicio)|0|35000|999|Peinados|0
+Tratamiento capilar (servicio)|8000|45000|999|Tratamientos capilares|0
+Cepillo de cabello|6000|11000|4|Productos de venta|19`,
+mascotas:`Concentrado perro adulto (kg)|5500|8000|40|Alimento para perros|19|k
+Concentrado cachorro (kg)|6500|9500|30|Alimento para perros|19|k
+Concentrado gato (kg)|6500|9500|30|Alimento para gatos|19|k
+Arena para gatos 5 kg|14000|22000|10|Higiene y aseo|19
+Collar mediano|6000|12000|12|Accesorios|19
+Correa|7000|14000|12|Accesorios|19
+Juguete mordedera|3500|8000|20|Juguetes|19
+Shampoo para perros|9000|16000|10|Higiene y aseo|19
+Antipulgas pipeta|14000|24000|12|Higiene y aseo|19
+Snack dental|3000|6000|25|Alimento para perros|19
+Plato comedero|4000|9000|14|Accesorios|19
+Cama pequeña|25000|45000|5|Camas y transportadoras|19
+Pecera 20 L|30000|55000|3|Accesorios|19`,
+ferreteria:`Martillo|9000|16000|10|Herramientas manuales|19
+Destornillador de pala|3500|7000|20|Herramientas manuales|19
+Alicate|8000|15000|10|Herramientas manuales|19
+Cinta métrica 5 m|4500|9000|15|Herramientas manuales|19
+Taladro 1/2|110000|165000|4|Herramientas eléctricas|19
+Broca 1/4|1500|3500|40|Herramientas eléctricas|19
+Tornillo 1" (caja)|3000|6500|30|Tornillería y fijaciones|19
+Chazos x50|2500|5500|25|Tornillería y fijaciones|19
+Cinta de enmascarar|2200|4500|30|Pinturas y acabados|19
+Pintura blanca galón|42000|62000|8|Pinturas y acabados|19
+Brocha 3"|3000|6500|16|Pinturas y acabados|19
+Cable #12 (metro)|1400|2500|100|Electricidad|19
+Toma doble|2500|5500|20|Electricidad|19
+Bombillo LED 9W|3000|6000|40|Electricidad|19
+Candado 40 mm|9000|17000|10|Seguridad y candados|19
+Pegante PVC|4500|8500|3|Plomería|19`,
+papeleria:`Cuaderno cuadriculado|2800|4500|40|Cuadernos|19
+Lapicero azul|500|1000|100|Escritura|19
+Lápiz|400|800|80|Escritura|19
+Borrador|300|700|50|Útiles|19
+Colores x12|4500|8000|20|Arte|19
+Resma de papel carta|13000|19000|10|Papel|19
+Pegante en barra|1500|3000|30|Útiles|19
+Tijeras|1800|3500|20|Útiles|19
+Cartulina|500|1200|60|Papel|19
+Marcadores x6|5500|10000|15|Escritura|19
+Carpeta|1200|2500|30|Archivo|19
+Calculadora|9000|16000|6|Oficina|19
+Fotocopia (servicio)|40|100|999|Servicios|0
+Impresión (servicio)|120|300|999|Servicios|0
+Sacapuntas|400|1000|3|Útiles|19`,
+ropa:`Camiseta de algodón|12000|25000|20|Ropa de caballero|19
+Blusa|14000|30000|15|Ropa de dama|19
+Jean|35000|75000|12|Ropa de dama|19
+Pantalón de dril|30000|65000|10|Ropa de caballero|19
+Buzo|25000|55000|10|Ropa de caballero|19
+Medias x3|5000|12000|30|Accesorios|19
+Ropa interior|6000|14000|25|Ropa interior|19
+Tenis|55000|110000|8|Calzado|19
+Sandalias|25000|55000|10|Calzado|19
+Gorra|8000|18000|14|Accesorios|19
+Morral|22000|45000|7|Bolsos y morrales|19
+Correa|8000|18000|12|Accesorios|19
+Vestido de niña|16000|35000|9|Ropa de niños|19
+Bermuda|14000|28000|3|Ropa de caballero|19`,
+tecnologia:`Cargador USB-C|7000|15000|20|Accesorios|19
+Cable USB-C|3500|8000|40|Accesorios|19
+Audífonos|8000|18000|25|Accesorios|19
+Forro de celular|3000|10000|50|Accesorios|19
+Vidrio templado|2000|8000|45|Accesorios|19
+Memoria USB 32 GB|14000|24000|12|Accesorios|19
+Mouse|9000|18000|10|Accesorios|19
+Parlante bluetooth|28000|55000|6|Accesorios|19
+Batería externa|30000|55000|6|Accesorios|19
+Pila AA x4|3500|7000|20|Accesorios|19
+Cargador de carro|7000|15000|10|Accesorios|19
+Soporte para celular|5000|12000|3|Accesorios|19`,
+carnes:`Carne molida (kg)|18000|26000|30|Res|0|k
+Lomo de res (kg)|28000|38000|20|Res|0|k
+Costilla de cerdo (kg)|16000|23000|20|Cerdo|0|k
+Pollo entero (kg)|8500|12000|35|Pollo|0|k
+Pechuga de pollo (kg)|12500|17500|25|Pollo|0|k
+Chorizo (kg)|13000|19000|12|Embutidos|19|k
+Tomate (kg)|2200|3500|30|Verduras|0|k
+Cebolla (kg)|1800|3000|25|Verduras|0|k
+Papa (kg)|1500|2600|60|Tubérculos|0|k
+Plátano (kg)|1800|3000|40|Frutas|0|k
+Queso campesino (kg)|14000|21000|10|Quesos|0|k
+Jamón (kg)|16000|24000|8|Jamones y carnes frías|19|k
+Huevo AA x30|13000|17000|14|Huevos|0
+Banano (kg)|1500|2500|3|Frutas|0|k`
+};
+const DEMO_OF={};
+[['panaderia','Panadería y pastelería','Cafetería','Heladería'],['comidas','Restaurante','Comidas rápidas'],['drogueria','Droguería','Tienda naturista'],['licorera','Licorera o estanco'],
+ ['belleza','Peluquería','Barbería','Salón de uñas','Spa y estética','Centro de masajes','Tienda de belleza','Perfumería y aseo'],['mascotas','Tienda de mascotas','Veterinaria'],
+ ['ferreteria','Ferretería','Cacharrería','Tienda de hogar y decoración'],['papeleria','Papelería y librería','Fotocopias e impresiones','Juguetería','Regalos y detalles','Misceláneas'],
+ ['ropa','Ropa, calzado y accesorios','Bisutería','Tienda deportiva','Pañalera'],['tecnologia','Tecnología y electrónicos','Reparación de celulares y accesorios','Cibercafé','Recargas y servicios'],
+ ['carnes','Carnicería','Fruver','Salsamentaria']].forEach(a=>a.slice(1).forEach(t=>DEMO_OF[t]=a[0]));
+
 function loadDemo(){
   const keep={business:S.meta.business,owner:S.meta.owner,type:S.meta.type};
   S=blank();Object.assign(S.meta,keep,{practice:true});
   let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
   const P=[['Arroz 500 g','Granos',1900,2500,40],['Aceite 1 L','Despensa',8200,9800,18],['Azúcar 1 kg','Granos',3600,4500,25],['Leche entera 1 L','Lácteos',3900,4600,30],['Huevo (unidad)','Lácteos',450,600,120],['Pan tajado','Panadería',3800,4800,12],['Café 250 g','Despensa',7600,9500,14],['Panela','Despensa',2800,3500,20],['Sal 500 g','Despensa',1100,1500,22],['Fríjol 500 g','Granos',3900,5000,16],['Gaseosa 1,5 L','Bebidas',4200,5500,24],['Agua 600 ml','Bebidas',1100,1800,36],['Galletas de sal','Snacks',1300,2000,28],['Papas fritas','Snacks',1900,2800,26],['Jabón de barra','Aseo',1700,2400,18],['Detergente 500 g','Aseo',4300,5600,12],['Papel higiénico x4','Aseo',5200,6800,10],['Atún en lata','Despensa',4300,5600,15],['Pasta 250 g','Granos',1700,2400,30],['Chocolate de mesa','Despensa',4600,5800,14],['Mantequilla','Lácteos',3300,4200,10],['Salchichas x5','Carnes frías',4800,6200,9],['Cuaderno','Papelería',2800,4000,12],['Lapicero','Papelería',600,1000,40],['Bolsa de hielo','Bebidas',900,1500,3]];
   const DC={'Granos':'Abarrotes y granos','Despensa':'Aceites y condimentos','Lácteos':'Lácteos y huevos','Panadería':'Pan y galletas','Bebidas':'Bebidas','Snacks':'Snacks y dulces','Aseo':'Aseo del hogar','Carnes frías':'Carnes y embutidos','Papelería':'Papelería y varios'};
-  P.forEach((p,i)=>S.products.push({id:uid()+i,name:p[0],cat:DC[p[1]]||p[1],cost:p[2],price:p[3],stock:p[4],min:p[4]>=30?8:5,loc:i%4===0?'Bodega':'Piso de venta',barcode:'77012345'+String(10000+i*37),sold:0}));
-  S.products[24].stock=0;S.products[16].stock=3;S.products[21].stock=4;
+  const DS=DEMOS[DEMO_OF[S.meta.type]];
+  if(DS)DS.split('\n').forEach((ln,i)=>{const a=ln.split('|');S.products.push({id:uid()+i,name:a[0],cat:a[4],cost:+a[1],price:+a[2],stock:+a[3],min:+a[3]>=30?8:+a[3]>=900?0:5,loc:'Piso de venta',barcode:'77012345'+String(10000+i*37),sold:0,iva:+a[5]||0,bulk:a[6]==='k'})});
+  else P.forEach((p,i)=>S.products.push({id:uid()+i,name:p[0],cat:DC[p[1]]||p[1],cost:p[2],price:p[3],stock:p[4],min:p[4]>=30?8:5,loc:i%4===0?'Bodega':'Piso de venta',barcode:'77012345'+String(10000+i*37),sold:0,iva:['Granos','Lácteos','Panadería'].includes(p[1])?0:19}));
+  const N=S.products.length;S.products[N-1].stock=0;S.products[Math.max(0,N-9)].stock=3;S.products[Math.max(0,N-4)].stock=4;
   ['Doña Marta','Don Pedro','Luz Ángela','Carlos Ruiz','Yenny Gómez'].forEach((n,i)=>S.customers.push({id:'c'+i,name:n,phone:'30012345'+(10+i),notes:''}));
   S.suppliers.push({id:'s0',name:'Distribuidora El Surtido',phone:'3101234567'},{id:'s1',name:'Lácteos del Tolima',phone:'3207654321'});
   const t0=sod(Date.now());
@@ -1747,7 +1954,7 @@ function loadDemo(){
     const n=7+Math.floor(rnd()*7);
     for(let i=0;i<n;i++){
       const items=[],k=1+Math.floor(rnd()*4);
-      for(let j=0;j<k;j++){const p=S.products[Math.floor(rnd()*22)],q=1+Math.floor(rnd()*3);if(!items.find(x=>x.pid===p.id)){items.push({pid:p.id,name:p.name,qty:q,price:p.price,cost:p.cost});p.sold+=q}}
+      for(let j=0;j<k;j++){const p=S.products[Math.floor(rnd()*(N-3))],q=1+Math.floor(rnd()*3);if(!items.find(x=>x.pid===p.id)){items.push({pid:p.id,name:p.name,qty:q,price:p.price,cost:p.cost,iva:p.iva||0,bulk:!!p.bulk});p.sold+=q}}
       const total=sum(items,l=>l.price*l.qty),r=rnd(),m=r<.6?'efectivo':r<.8?'digital':'fiado';
       S.sales.push({id:'v'+d+'_'+i,no:++S.counters.sale,ts:day+(8+Math.floor(rnd()*10))*36e5+Math.floor(rnd()*36e5),items,total,cost:sum(items,l=>l.cost*l.qty),method:m,customerId:m==='fiado'?'c'+Math.floor(rnd()*3):'',received:total,change:0,cajaId:caja.id});
     }
@@ -1870,6 +2077,9 @@ document.addEventListener('click',async e=>{
    'imp-paste'(){const t=$('#imptext').value;if(!t.trim())return toast('Pega las filas primero','warn');impLoad(csvRows(t))},
    'imp-ok'(){impApply()},
    'imp-back'(){imp=null;impDraw()},
+   'big-toggle'(){S.meta.big=!S.meta.big;save();applyBig();if(d.gd!==undefined&&$('#gd'))gdDraw(+d.gd);else render()},
+   'gd-go'(){gdDraw(+d.i)},
+   'guide-open'(){guide(0)},
    'ret-form'(){returnForm(d.id)},
    'ret-qty'(){const s=S.sales.find(x=>x.id===rt.id),i=s.items[+d.k],st=i.bulk?0.1:1;rt.q[+d.k]=Math.max(0,Math.min(retLeft(s,i),Math.round((rt.q[+d.k]+(+d.d)*st)*1000)/1000));retDraw()},
    'ret-back'(){rt.back=el.checked},
@@ -1888,7 +2098,7 @@ document.addEventListener('submit',e=>{
   const k=f.dataset.form;
   if(k==='onb'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);sessSet(true);
     if(fd.get('mode')==='demo'){loadDemo()}else{save()}
-    location.hash='#/home';shell();render();return}
+    location.hash='#/home';shell();render();if(!S.meta.guide)setTimeout(()=>guide(0),500);return}
   if(k==='product')saveProduct(f);
   if(k==='cust')saveCust(f);
   if(k==='supp'){const fd=new FormData(f),id=f.dataset.id,o={name:fd.get('name').trim(),phone:fd.get('phone').replace(/\D/g,'')};let s;if(id){s=supp(id);Object.assign(s,o)}else{s={id:uid(),...o};S.suppliers.push(s)}save();const ov=modalEl(),cb=ov&&ov._after;closeModal();toast('Proveedor guardado','ok');cb?cb(s):render()}
@@ -1922,7 +2132,7 @@ document.addEventListener('submit',e=>{
     if(a!==b)return toast('Los dos PIN no coinciden','warn');
     hashPin(a).then(h=>{S.meta.pin=h;save();sessSet(true);toast('PIN activado','ok');render()});return}
   if(k==='pricing'){const fd=new FormData(f);const m=dec(fd.get('defMargin'));S.meta.defMargin=(m>0&&m<100)?m:0;S.meta.round=+fd.get('round')||0;save();toast('Guardado','ok');render()}
-  if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);S.meta.phone=(fd.get('phone')||'').trim();S.meta.address=(fd.get('address')||'').trim();S.meta.nit=(fd.get('nit')||'').trim();S.meta.logo=fd.get('logo')||'';save();toast('Guardado','ok');render()}
+  if(k==='biz'){const fd=new FormData(f);S.meta.business=fd.get('business').trim();S.meta.owner=fd.get('owner').trim();S.meta.type=readType(fd);S.meta.phone=(fd.get('phone')||'').trim();S.meta.address=(fd.get('address')||'').trim();S.meta.nit=(fd.get('nit')||'').trim();S.meta.logo=fd.get('logo')||'';S.meta.ivaOn=fd.get('ivaon')==='on';save();toast('Guardado','ok');render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;

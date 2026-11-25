@@ -425,6 +425,7 @@ html.big body{zoom:1.2}
 .dbox.ok{background:#DDF6E8;border-color:#0E9F58;color:#0B7A43}
 .dbox.up{background:#E3EAFF;border-color:#2447D0;color:#1B3BB3}
 .dbox.low{background:#FDE4E4;border-color:#D92D2D;color:#B01E1E}
+.tip button.bigopen{background:var(--pri);color:#fff;font-size:17px;padding:14px 20px;border-radius:14px;box-shadow:0 4px 12px rgba(36,71,208,.35)}
 </style>
 </head>
 <body>
@@ -658,7 +659,7 @@ function insights(){
   const yS=salesIn(t0-DAY,t0);
   if(yS.length&&!salesIn(t0,t0+DAY).length)out.push({t:'ok',x:`Ayer vendiste ${money(sum(yS.filter(s=>s.method!=='autoconsumo'),s=>s.total))} y tu ganancia estimada fue ${money(profit(yS))}.`});
   if(S.sales.length&&Date.now()-S.meta.lastBackup>7*DAY&&!S.meta.practice)out.push({t:'warn',x:'Hace más de una semana que no guardas una copia de seguridad. Tus datos viven solo en este equipo.',go:'mas',l:'Respaldar'});
-  if(!openCaja()&&S.products.length)out.push({t:'',x:'La caja está cerrada. Ábrela para empezar a vender.',go:'caja',l:'Abrir'});
+  if(!openCaja()&&S.products.length)out.push({t:'',x:'<b>La caja está cerrada.</b> Ábrela para empezar a vender.',go:'caja',l:'Abrir'});
   return out;
 }
 
@@ -814,7 +815,7 @@ VIEWS.home={
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
    <div class="mb"><div class="mut sm">${esc(fmtLong(Date.now()).replace(/^./,c=>c.toUpperCase()))} · ${esc(S.meta.business)}</div><h2 style="font-size:24px;letter-spacing:-.5px">Hola, ${esc(firstName(S.meta.owner))} 👋</h2></div>
    <div class="hgrid">
-   ${tips.length?`<div class="mt2 htips"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button data-act="go" data-to="${t.go}">${t.l}</button>`:''}</div>`).join('')}</div>`:''}
+   ${tips.length?`<div class="mt2 htips"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button class="${t.go==='caja'&&t.l==='Abrir'?'bigopen':''}" data-act="go" data-to="${t.go}">${t.go==='caja'&&t.l==='Abrir'?'Abrir caja':t.l}</button>`:''}</div>`).join('')}</div>`:''}
    <div class="cards mt2 hcards">${mods.map(m=>`<a class="mod" data-act="go" data-to="${m[0]}">${`<div class="ic">${ic(m[1],'lg')}</div>`}<b>${m[2]}</b><span>${m[3]}</span></a>`).join('')}</div>
    </div>`;
  }

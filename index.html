@@ -415,6 +415,11 @@ html.big body{zoom:1.2}
 .ds{text-align:right;font-weight:700;font-size:13.5px}
 .dtot{display:flex;justify-content:space-between;align-items:baseline;border-top:2px solid var(--line);padding:10px 2px 12px}
 .dtot span{font-weight:700;color:var(--mut)}.dtot b{font-size:22px}
+.bk{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;background:#fff}
+.bk2{margin-top:8px;background:#F8F9FD}
+.bkh{font-weight:800;font-size:14px;margin-bottom:6px}
+.bkbase{display:flex;justify-content:space-between;align-items:center;background:#DDF6E8;border:1.5px solid #0E9F58;color:#0B7A43;border-radius:12px;padding:10px 12px;margin-bottom:4px;font-weight:800}
+.bkbase small{display:block;font-size:11px;font-weight:600;opacity:.8}.bkbase b{font-size:20px}
 </style>
 </head>
 <body>
@@ -1651,7 +1656,7 @@ function openCajaForm(res,rej){
   let done=false;
   const ov=modal('Abrir caja',`<form data-form="opencaja">
    <p class="mut" style="margin:0 0 12px">La caja registra la plata del día: lo que entra, lo que sale y al final se cuadra con lo que cuentas.</p>
-   <div class="fg"><label class="f">¿Con cuánto efectivo abres?</label><input class="in money" name="initial" inputmode="numeric" value="${last?fmtInt(last.counted||0):''}" placeholder="0" autofocus></div>
+   <div class="fg"><label class="f">Base de la caja: ¿con cuánto efectivo abres?</label><input class="in money" name="initial" inputmode="numeric" value="${last?fmtInt(last.counted||0):''}" placeholder="0" autofocus><div class="mut xs" style="margin-top:4px">La base es el efectivo con el que empiezas (para dar vueltos). Se suma al cierre y al arqueo.</div></div>
    <button class="btn pri big">Abrir caja</button></form>`,{onClose:()=>{if(!done&&rej)rej()}});
   ov._res=c=>{done=true;res&&res(c)};
 }
@@ -1672,14 +1677,14 @@ VIEWS.caja={
    <div class="g2 mt"><button class="btn soft" data-act="mov-form">${ic('plus','sm')} Movimiento</button><button class="btn soft" data-act="arqueo">${ic('check','sm')} Arquear caja</button><button class="btn soft" data-act="go" data-to="ventas">${ic('list','sm')} Historial de ventas</button><button class="btn pri" data-act="close-caja">Cerrar caja</button></div>
    <div class="cgrid mt">
     <div class="panel"><div class="ptitle pt-g">${ic('wallet','sm')}<span>Dinero en la caja</span></div><div class="mut xs center" style="margin:-4px 0 8px">Abrió ${esc(S.meta.owner||'')} · ${fmtDT(c.openedAt)}</div>
-     ${Lh('Caja inicial',money(r.initial))}${Lh('Ventas en efectivo','+ '+money(r.cash))}${Lh('Abonos de clientes','+ '+money(r.abonosCash))}${Lh('Otros ingresos','+ '+money(r.ingresos))}
+     ${Lh('Base de la caja (inicial)',money(r.initial))}${Lh('Ventas en efectivo','+ '+money(r.cash))}${Lh('Abonos de clientes','+ '+money(r.abonosCash))}${Lh('Otros ingresos','+ '+money(r.ingresos))}
      ${Lh('Gastos','− '+money(r.gastos),'bad')}${Lh('Retiros y consignaciones','− '+money(r.egresos),'bad')}${Lh('Compras en efectivo','− '+money(r.comprasCash),'bad')}${Lh('Pagos a proveedores','− '+money(r.pagosProvCash),'bad')}${Lt('Debe haber',money(r.expected))}</div>
     <div class="panel"><div class="ptitle pt-b">${ic('cart','sm')}<span>Ventas</span></div>
      ${Lh('En efectivo',money(r.cash))}${Lh('Transferencia / datáfono',money(r.digital))}${Lh('Fiado',money(r.fiado))}${Lh('Consumo propio',money(r.auto))}${Lt('Total ventas',money(r.cash+r.digital+r.fiado))}<div class="mut xs mt">${r.nSales} ${r.nSales===1?'venta':'ventas'} · el consumo propio no se suma al total</div></div>
     <div class="panel"><div class="ptitle pt-o">${ic('bag','sm')}<span>Compras</span></div>
      ${Lh('En efectivo',money(w.pEf))}${Lh('Transferencia',money(w.pDig))}${Lh('A crédito',money(w.pCre))}${Lh('Pagos a proveedores',money(w.pagos))}${Lt('Total compras',money(w.pEf+w.pDig+w.pCre))}</div>
    </div>
-   ${(c.arqueos&&c.arqueos.length)?`<div class="panel mt"><h3>Arqueos de este turno</h3><div class="list">${c.arqueos.slice().reverse().map(a=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${fmtDT(a.ts)}${a.by?' · '+esc(a.by):''}</div><div class="s">Contó ${money(a.counted)} · debía haber ${money(a.expected)}${a.note?' · '+esc(a.note):''}</div></div><div class="b ${a.diff===0?'ok':a.diff>0?'warn':'bad'}">${a.diff===0?'Cuadró':a.diff>0?'Sobra '+money(a.diff):'Falta '+money(-a.diff)}</div></div>`).join('')}</div></div>`:''}
+   ${(c.arqueos&&c.arqueos.length)?`<div class="panel mt"><h3>Arqueos de este turno</h3><div class="list">${c.arqueos.slice().reverse().map(a=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${fmtDT(a.ts)}${a.by?' · '+esc(a.by):''}</div><div class="s">Base ${money(a.initial||0)} · contó ${money(a.counted)} · debía haber ${money(a.expected)}${a.note?' · '+esc(a.note):''}</div></div><div class="b ${a.diff===0?'ok':a.diff>0?'warn':'bad'}">${a.diff===0?'Cuadró':a.diff>0?'Sobra '+money(a.diff):'Falta '+money(-a.diff)}</div></div>`).join('')}</div></div>`:''}
    <div class="panel mt"><h3>Movimientos de hoy</h3>${mv.length?`<div class="list">${mv.map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${esc(m.concept)}</div><div class="s">${{ingreso:'Ingreso',gasto:'Gasto',egreso:'Retiro'}[m.type]} · ${fmtDT(m.ts)}</div></div><div class="b ${m.type==='ingreso'?'ok':'bad'}">${m.type==='ingreso'?'+':'−'}${money(m.amount)}</div></div>`).join('')}</div>`:'<div class="empty">Sin movimientos manuales</div>'}</div>`;
  }
 };
@@ -1694,6 +1699,19 @@ function movForm(){
    <button class="btn pri big">Guardar</button></form>`);
 }
 
+
+function cajaBreak(r){
+  const row=(k,v,cls='',sub='')=>`<div class="row between" style="padding:7px 0;border-bottom:1px solid var(--line)"><span class="${cls==='base'?'b':'mut'}">${k}${sub?`<small class="mut" style="display:block;font-size:11px">${sub}</small>`:''}</span><b class="${cls==='bad'?'bad':''}">${v}</b></div>`;
+  const out=r.gastos+r.egresos+r.comprasCash+r.pagosProvCash;
+  return `<div class="bk"><div class="bkh">Cómo se arma el efectivo</div>
+   <div class="bkbase"><span>Base de la caja<small>Con lo que abriste</small></span><b>${money(r.initial)}</b></div>
+   ${row('Ventas en efectivo','+ '+money(r.cash))}${r.abonosCash?row('Abonos de clientes','+ '+money(r.abonosCash)):''}${r.ingresos?row('Otros ingresos','+ '+money(r.ingresos)):''}
+   ${r.gastos?row('Gastos','− '+money(r.gastos),'bad'):''}${r.egresos?row('Retiros y consignaciones','− '+money(r.egresos),'bad'):''}${r.comprasCash?row('Compras en efectivo','− '+money(r.comprasCash),'bad'):''}${r.pagosProvCash?row('Pagos a proveedores','− '+money(r.pagosProvCash),'bad'):''}
+   ${out||r.abonosCash||r.ingresos?'':''}<div class="row between" style="padding:10px 0 2px"><b>Debe haber en efectivo</b><b style="font-size:20px">${money(r.expected)}</b></div></div>
+  <div class="bk bk2"><div class="bkh">Ventas que NO entran como efectivo</div>
+   <div class="mut xs" style="margin:-2px 0 4px">Se vendieron hoy, pero no deben estar en la caja.</div>
+   ${row('Transferencia / datáfono',money(r.digital),'','Llega al banco o app')}${row('Fiado',money(r.fiado),'','Te lo deben los clientes')}${row('Consumo propio',money(r.auto),'','Sale del inventario, no paga nadie')}</div>`;
+}
 const DEN=[[100000,'Billete'],[50000,'Billete'],[20000,'Billete'],[10000,'Billete'],[5000,'Billete'],[2000,'Billete'],[1000,'Moneda'],[500,'Moneda'],[200,'Moneda'],[100,'Moneda'],[50,'Moneda']];
 function denomBlock(open){
   return `<details class="den" ${open?'open':''}><summary>${ic('list','sm')} Contar por billetes y monedas</summary>
@@ -1709,7 +1727,7 @@ function arqueoForm(){
   const c=openCaja(),r=cajaSum(c);
   modal('Arqueo de caja',`<form data-form="arqueo" data-exp="${r.expected}">
    <div class="tip">${ic('bulb','sm')}<div>El arqueo es solo para verificar. <b>No cierra la caja</b> ni cambia nada de tus ventas.</div></div>
-   <div class="kpis mt"><div class="kpi hl"><div class="l">Debe haber ahora</div><div class="v">${money(r.expected)}</div></div></div>
+   <div class="mt">${cajaBreak(r)}</div>
    ${denomBlock(true)}
    <div class="fg mt"><label class="f">Total contado en efectivo</label><input class="in money" name="counted" inputmode="numeric" required placeholder="0" style="font-size:22px;font-weight:800;text-align:center"></div>
    <div id="diff" class="tip hide"></div>
@@ -1719,7 +1737,7 @@ function arqueoForm(){
 }
 function saveArqueo(f){
   const c=openCaja(),r=cajaSum(c),fd=new FormData(f),counted=digits(fd.get('counted')),{o}=denomRead(f);
-  const a={id:uid?uid():String(Date.now()),ts:Date.now(),counted,expected:r.expected,diff:counted-r.expected,by:(fd.get('by')||'').trim(),note:(fd.get('note')||'').trim(),den:o};
+  const a={id:uid(),ts:Date.now(),initial:r.initial,counted,expected:r.expected,diff:counted-r.expected,by:(fd.get('by')||'').trim(),note:(fd.get('note')||'').trim(),den:o};
   (c.arqueos=c.arqueos||[]).push(a);save();closeModal();
   toast(a.diff===0?'Arqueo guardado · ¡Cuadra perfecto!':a.diff>0?'Arqueo guardado · sobran '+money(a.diff):'Arqueo guardado · faltan '+money(-a.diff),a.diff===0?'ok':'warn');
   render();
@@ -1727,7 +1745,7 @@ function saveArqueo(f){
 function closeCajaForm(){
   const c=openCaja(),r=cajaSum(c);
   modal('Cerrar caja',`<form data-form="closecaja" data-exp="${r.expected}">
-   <div class="kpis"><div class="kpi"><div class="l">Debe haber</div><div class="v">${money(r.expected)}</div></div><div class="kpi"><div class="l">Ventas del turno</div><div class="v">${money(r.cash+r.digital+r.fiado)}</div></div></div>
+   ${cajaBreak(r)}
    ${denomBlock()}
    <div class="fg mt"><label class="f">Total contado en efectivo</label><input class="in money" name="counted" inputmode="numeric" required placeholder="0" style="font-size:22px;font-weight:800;text-align:center"></div>
    <div id="diff" class="tip hide"></div>
@@ -1746,7 +1764,7 @@ function saveClose(f){
 }
 function closeText(c){
   const r=c.summary;
-  return `*Cierre de caja · ${S.meta.business}*\n${fmtLong(c.openedAt)}\n\nVentas (${r.nSales}): ${money(r.cash+r.digital+r.fiado+r.auto)}\n• Efectivo: ${money(r.cash)}\n• Transferencia/datáfono: ${money(r.digital)}\n• Fiado: ${money(r.fiado)}\nGastos: ${money(r.gastos)}\nContado en caja: ${money(c.counted)}\n${c.diff===0?'Cuadró ✔':(c.diff>0?'Sobró ':'Faltó ')+money(Math.abs(c.diff))}`;
+  return `*Cierre de caja · ${S.meta.business}*\n${fmtLong(c.openedAt)}\n\nBase de la caja: ${money(r.initial)}\nVentas (${r.nSales}): ${money(r.cash+r.digital+r.fiado+r.auto)}\n• Efectivo: ${money(r.cash)}\n• Transferencia/datáfono: ${money(r.digital)}\n• Fiado: ${money(r.fiado)}\n• Consumo propio: ${money(r.auto)}\nGastos: ${money(r.gastos)}\nDebía haber: ${money(c.expected)}\nContado en caja: ${money(c.counted)}\n${c.diff===0?'Cuadró ✔':(c.diff>0?'Sobró ':'Faltó ')+money(Math.abs(c.diff))}`;
 }
 
 /* COMPRAS */
@@ -2284,7 +2302,7 @@ document.addEventListener('click',async e=>{
    'close-caja'(){closeCajaForm()},
    'arqueo'(){arqueoForm()},
    'den-step'(){const f=el.closest('form'),i=$('[data-den="'+d.v+'"]',f);i.value=Math.max(0,(+i.value||0)+(+d.d))||'';denomApply(f)},
-   'caja-detail'(){const c=S.cajas.find(x=>x.id===d.id),r=c.summary||cajaSum(c);modal('Cierre del '+fmtD(c.openedAt),`<div class="mut sm" style="margin:-4px 0 8px">Abrió: ${fmtDT(c.openedAt)}${c.closedAt?'<br>Cerró: '+fmtDT(c.closedAt):''}</div><div class="list">${[['Caja inicial',r.initial],['Ventas en efectivo',r.cash],['Transferencia / datáfono',r.digital],['Fiado',r.fiado],['Abonos (efectivo)',r.abonosCash],['Gastos',-r.gastos],['Retiros',-r.egresos],['Compras en efectivo',-r.comprasCash]].map(x=>`<div class="item" style="cursor:default;padding:8px 0"><div class="grow mut">${x[0]}</div><b>${money(x[1])}</b></div>`).join('')}</div><div class="total"><span>Debía haber</span><span>${money(c.expected)}</span></div><div class="row between b"><span>Contado</span><span>${money(c.counted)}</span></div><div class="tip ${c.diff===0?'ok':'warn'} mt">${c.diff===0?'Cuadró perfecto':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}${c.note?' · '+esc(c.note):''}</div><button class="btn mt" data-act="wa-close" data-id="${c.id}">${ic('chat','sm')} Compartir por WhatsApp</button>`)},
+   'caja-detail'(){const c=S.cajas.find(x=>x.id===d.id),r=c.summary||cajaSum(c);modal('Cierre del '+fmtD(c.openedAt),`<div class="mut sm" style="margin:-4px 0 8px">Abrió: ${fmtDT(c.openedAt)}${c.closedAt?'<br>Cerró: '+fmtDT(c.closedAt):''}</div><div class="list">${[['Base de la caja (inicial)',r.initial],['Ventas en efectivo',r.cash],['Abonos de clientes (efectivo)',r.abonosCash],['Otros ingresos',r.ingresos],['Gastos',-r.gastos],['Retiros',-r.egresos],['Compras en efectivo',-r.comprasCash],['Pagos a proveedores',-r.pagosProvCash],['— No entra como efectivo —',null],['Transferencia / datáfono',r.digital],['Fiado',r.fiado],['Consumo propio',r.auto]].map(x=>`<div class="item" style="cursor:default;padding:8px 0"><div class="grow mut">${x[0]}</div><b>${x[1]===null?'':money(x[1])}</b></div>`).join('')}</div><div class="total"><span>Debía haber</span><span>${money(c.expected)}</span></div><div class="row between b"><span>Contado</span><span>${money(c.counted)}</span></div><div class="tip ${c.diff===0?'ok':'warn'} mt">${c.diff===0?'Cuadró perfecto':c.diff>0?'Sobraron '+money(c.diff):'Faltaron '+money(-c.diff)}${c.note?' · '+esc(c.note):''}</div><button class="btn mt" data-act="wa-close" data-id="${c.id}">${ic('chat','sm')} Compartir por WhatsApp</button>`)},
    'wa-close'(){const c=S.cajas.find(x=>x.id===d.id);window.open('https://wa.me/?text='+encodeURIComponent(closeText(c)),'_blank')},
    ctab(){window._ctab=d.t;render()},
    'new-purchase'(){pd=null;go('compra')},

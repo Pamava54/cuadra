@@ -78,6 +78,19 @@ nav.nav a.on svg{background:var(--pri-l);padding:4px 16px;width:24px;height:24px
   .top .logo{display:none}
 }
 
+/* ---------- kits y datos extra ---------- */
+.prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--line);text-align:left;font-size:16px}
+.prow span{color:var(--mut);font-weight:600}
+.pinfo{margin-top:14px}
+.pinfo .nt{font-size:12.5px;color:var(--mut);text-align:left;margin:-4px 2px 6px}
+.kit-line{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.kit-line .kn{flex:1;min-width:0}
+.kit-line .kn b{display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kit-line .kn small{color:var(--mut);font-size:12px}
+.kit-line .qty input{width:52px;min-height:36px}
+.kit-sum{background:var(--pri-l);border-radius:14px;padding:10px 14px;margin:12px 0}
+.kit-sum .prow{border-top:0;padding:5px 0;font-size:14.5px}
+.badge.kit{background:var(--acc-l);color:#8A4A00}
 /* ---------- ui ---------- */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
 .panel+.panel{margin-top:12px}
@@ -111,8 +124,9 @@ form[data-form=product] input[name=price]{background:#E8F7EE;border-color:#B9E2C
 form[data-form=product] input[name=margin]:focus,form[data-form=product] input[name=price]:focus{background:#fff}
 form[data-form=product] label.f{color:#5A6385}
 .fg{margin-bottom:12px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.g2>.btn,.g3>.btn{white-space:normal;text-align:center;line-height:1.15;padding-top:8px;padding-bottom:8px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .searchbar{display:flex;gap:8px}
 .seg{display:flex;background:#EEF0F7;border-radius:14px;padding:4px;gap:4px}
 .seg button{flex:1;border:0;background:transparent;min-height:40px;border-radius:11px;font-weight:800;color:var(--mut);cursor:pointer;font-size:14px}
@@ -189,7 +203,7 @@ table.t td.r,table.t th.r{text-align:right}
 
 /* modal */
 .ovl{position:fixed;inset:0;background:rgba(15,20,45,.5);z-index:100;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92vh;display:flex;flex-direction:column;animation:up .18s ease-out}
+.sheet{background:#fff;width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;animation:up .18s ease-out}
 .sheet.wide{max-width:760px}
 @keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
 .sh-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}
@@ -431,10 +445,11 @@ async function loadState(){
   if(useLS){try{S=JSON.parse(localStorage.getItem('cuadra_state')||'null')}catch(e){S=null}}
   if(!S)S=blank();
   S={...blank(),...S};
+  try{syncKits()}catch(e){}
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 }
 let saveT;
-function save(){clearTimeout(saveT);saveT=setTimeout(persist,120)}
+function save(){try{syncKits()}catch(e){}clearTimeout(saveT);saveT=setTimeout(persist,120)}
 async function persist(){
   try{ if(useLS)localStorage.setItem('cuadra_state',JSON.stringify(S)); else await idbSet('state',S);}
   catch(e){toast('No se pudo guardar. Descarga una copia de seguridad ya.','bad')}
@@ -510,6 +525,19 @@ const readType=fd=>(fd.get('type')==='Otro'&&(fd.get('typeOther')||'').trim())?f
 /* ---------- derivados ---------- */
 const openCaja=()=>S.cajas.find(c=>!c.closedAt);
 const prod=id=>S.products.find(p=>p.id===id);
+/* ---------- kits o listas: un producto armado con varios ---------- */
+const isKit=p=>!!(p&&Array.isArray(p.kit)&&p.kit.length);
+function kitStock(p){let m=Infinity;for(const c of p.kit){const q=prod(c.pid);if(!q)return 0;m=Math.min(m,Math.floor(Math.max(0,q.stock)/(c.qty||1)+1e-9))}return m===Infinity?0:m}
+const kitCost=p=>sum(p.kit,c=>{const q=prod(c.pid);return q?(q.cost||0)*c.qty:0});
+const kitRef=p=>sum(p.kit,c=>{const q=prod(c.pid);return q?(q.price||0)*c.qty:0});
+function syncKits(){if(!S||!S.products)return;S.products.forEach(p=>{if(isKit(p)){p.stock=kitStock(p);p.cost=Math.round(kitCost(p));p.min=0}})}
+function moveStock(p,d){
+  if(isKit(p)){p.kit.forEach(c=>{const q=prod(c.pid);if(q)q.stock=Math.round((q.stock+d*c.qty)*1000)/1000})}
+  else p.stock=Math.round((p.stock+d)*1000)/1000;
+  syncKits();
+}
+const pkey=p=>norm((p.name||'')+' '+(p.brand||'')+' '+(p.ref||''));
+const pbr=p=>{const a=[p.brand,p.ref?'Ref. '+p.ref:''].filter(Boolean).map(esc);return a.length?a.join(' · ')+' · ':''};
 const cust=id=>S.customers.find(c=>c.id===id);
 const supp=id=>S.suppliers.find(s=>s.id===id);
 function custBalance(id){
@@ -731,7 +759,7 @@ VIEWS.home={
      <div class="kpi hl"><div class="l">Vendido hoy</div><div class="v">${money(ven)}</div></div>
      <div class="kpi"><div class="l">Ganancia estimada hoy</div><div class="v">${money(profit(ss))}</div></div>
      <div class="kpi"><div class="l">Te deben</div><div class="v">${money(totalCartera())}</div></div>
-     <div class="kpi"><div class="l">Productos por reponer</div><div class="v">${S.products.filter(p=>p.stock<=p.min).length}</div></div>
+     <div class="kpi"><div class="l">Productos por reponer</div><div class="v">${S.products.filter(p=>!isKit(p)&&p.stock<=p.min).length}</div></div>
    </div>
    <div class="hgrid">
    ${tips.length?`<div class="mt2 htips"><h3 class="row" style="font-size:16px">${ic('bulb','sm')} Cuadra te dice</h3>${tips.map(t=>`<div class="tip ${t.t}"><div>${t.x}</div>${t.go?`<button data-act="go" data-to="${t.go}">${t.l}</button>`:''}</div>`).join('')}</div>`:''}
@@ -823,15 +851,22 @@ function priceDraw(){
   const sg=$('#psug'),cd=$('#pcard');if(!sg)return;
   const q=($('#cq2').value||'').trim();
   if(q){const r=findProducts(q,6,true);
-    sg.innerHTML=r.length?`<div class="vsug">${r.map(p=>`<button data-act="price-pick" data-id="${p.id}">${thumbOf(p)}<span class="n">${esc(p.name)}</span><span class="p">${money(p.price)}</span></button>`).join('')}</div>`:`<div class="panel center mut"><b style="color:var(--ink)">No encontré “${esc(q)}”</b></div>`;
+    sg.innerHTML=r.length?`<div class="vsug">${r.map(p=>`<button data-act="price-pick" data-id="${p.id}">${thumbOf(p)}<span class="n">${esc(p.name)}${p.brand?` <small class="mut">· ${esc(p.brand)}</small>`:''}</span><span class="p">${money(p.price)}</span></button>`).join('')}</div>`:`<div class="panel center mut"><b style="color:var(--ink)">No encontré “${esc(q)}”</b></div>`;
     cd.innerHTML='';return}
   sg.innerHTML='';
   const p=prod(priceId);
   if(!p){cd.innerHTML=`<div class="vempty">${ic('scan','lg')}<b>Consulta un precio</b><span>Escanea el código o escribe el nombre. No se vende nada, solo se mira.</span></div>`;return}
   const st=p.stock<=0?'<span class="badge out">Agotado</span>':p.stock<=p.min?`<span class="badge low">Quedan ${qfmt(p.stock)}</span>`:`<span class="badge ok">Hay ${qfmt(p.stock)} disponibles</span>`;
-  cd.innerHTML=`<div class="pcardbig">${p.img?`<img class="pbig" src="${p.img}" alt="">`:''}<div class="pn">${esc(p.name)}</div><div class="pp">${money(p.price)}</div><div>${st}</div>
+  const kit=isKit(p),ws=(p.ws&&p.ws.min>0&&p.ws.price>0)?p.ws:null;
+  const dz=(ws&&ws.min<=12)?ws.price:p.price;
+  const rows=[`<div class="prow"><span>${p.bulk?'Precio por kilo':'Precio por unidad'}</span><b>${money(p.price)}</b></div>`];
+  if(ws)rows.push(`<div class="prow"><span>Por mayor (desde ${qfmt(ws.min)} und)</span><b>${money(ws.price)} c/u</b></div>`);
+  if(!p.bulk&&!kit)rows.push(`<div class="prow"><span>Por docena (12 und)</span><b>${money(Math.round(dz*12))}</b></div><div class="nt">${dz<p.price?`Cada una a ${money(dz)}, ahorras ${money(Math.round((p.price-dz)*12))} frente a comprar 12 sueltas.`:'Cada una al precio normal (este producto no tiene precio especial por docena).'}</div>`);
+  const inc=kit?`<div class="pinfo"><div class="mut sm" style="text-align:left;margin-bottom:4px"><b>Este kit trae:</b></div>${p.kit.map(c=>{const q=prod(c.pid);return q?`<div class="prow" style="padding:6px 2px;font-size:14.5px"><span style="color:var(--ink)">${qfmt(c.qty)} × ${esc(q.name)}</span><b>${money(q.price*c.qty)}</b></div>`:''}).join('')}<div class="nt" style="margin-top:6px">Sueltos costarían ${money(kitRef(p))}${kitRef(p)>p.price?` · ahorras ${money(kitRef(p)-p.price)}`:''}.</div></div>`:'';
+  cd.innerHTML=`<div class="pcardbig">${p.img?`<img class="pbig" src="${p.img}" alt="">`:''}<div class="pn">${esc(p.name)}</div>${(p.brand||p.ref)?`<div class="mut" style="margin-top:2px">${[p.brand,p.ref?'Ref. '+p.ref:''].filter(Boolean).map(esc).join(' · ')}</div>`:''}<div class="pp">${money(p.price)}</div><div>${kit?`<span class="badge ${p.stock>0?'ok':'out'}">${p.stock>0?`Se pueden armar ${qfmt(p.stock)}`:'Faltan productos para armarlo'}</span>`:st}</div>
+   <div class="pinfo">${rows.join('')}</div>${inc}
    <div class="mut sm" style="margin-top:12px">${p.cat?esc(p.cat)+' · ':''}${esc(p.barcode||'Sin código de barras')}</div>
-   <div class="g2" style="margin-top:18px"><button class="btn pri" data-act="price-add" data-id="${p.id}">${ic('cart','sm')} Agregar a la venta</button><button class="btn soft" data-act="edit-product" data-id="${p.id}">Cambiar precio</button></div></div>`;
+   <div class="g2" style="margin-top:18px"><button class="btn pri" data-act="price-add" data-id="${p.id}">${ic('cart','sm')} Agregar a la venta</button><button class="btn soft" data-act="edit-product" data-id="${p.id}">${kit?'Editar kit':'Cambiar precio'}</button></div></div>`;
 }
 
 
@@ -895,11 +930,11 @@ VIEWS.etiquetas={
   return `<div class="panel"><div class="chips">${M.map(m=>`<button data-act="lab-mode" data-v="${m[0]}" class="${lab.mode===m[0]?'on':''}">${m[1]}</button>`).join('')}</div>
    <p class="mut sm" style="margin:10px 2px 0">${lab.mode==='precio'?'Trae nombre, precio, precio por unidad de medida (PUM), código de barras y fecha.':'Solo el código de barras con su número. Útil para pegar en ofertas, kits o productos sin código.'}</p>
    <div class="chips mt">${Z.map(z=>`<button data-act="lab-size" data-v="${z[0]}" class="${lab.size===z[0]?'on':''}">${z[1]}</button>`).join('')}</div></div>
-  <div class="panel"><h3>1. Elige los productos</h3><div class="searchbar"><input id="lq" class="in" placeholder="Buscar producto o escanear código" value="${esc(lab.q)}" autocomplete="off"></div><div id="lres" class="list mt"></div>
+  <div class="panel"><h3>1. Elige los productos</h3><div class="searchbar"><input id="lq" class="in" placeholder="Escribe o escanea el producto" value="${esc(lab.q)}" autocomplete="off" enterkeyhint="search"><button class="btn pri icon" data-act="lab-scan" aria-label="Escanear con cámara">${ic('scan')}</button></div><p class="mut xs" style="margin:6px 2px 0">Cada vez que escaneas un producto se agrega una etiqueta. Con pistola lectora también funciona en el cuadro de búsqueda.</p><div id="lres" class="list mt"></div>
    <div class="row mt" style="gap:8px;flex-wrap:wrap"><button class="btn sm soft" data-act="lab-all">Todos los productos</button><button class="btn sm soft" data-act="lab-fav">Solo favoritos</button><button class="btn sm" data-act="lab-clear">Vaciar</button></div></div>
   <div class="panel"><h3>2. Cantidad de etiquetas</h3><div id="lsel" class="list"></div></div>
   <div class="panel"><div class="row between mb"><h3 style="margin:0">Vista previa</h3><button class="btn pri" data-act="lab-print">${ic('list','sm')} Imprimir</button></div><div id="lpv" class="labs prev"></div></div>`},
- after(){labRender();$('#lq').addEventListener('input',e=>{lab.q=e.target.value;labRes()});$('#lq').addEventListener('keydown',e=>{if(e.key==='Enter'){const f=findProducts(lab.q,1,false)[0];if(f){labAdd(f.id);lab.q='';e.target.value='';labRes()}}})}
+ after(){labRender();$('#lq').addEventListener('input',e=>{lab.q=e.target.value;labRes()});$('#lq').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const f=findProducts(lab.q,1,false)[0];if(f){labAdd(f.id);lab.q='';e.target.value='';labRes();toast(f.name,'ok')}else if(lab.q.trim())toast('No encontré ese producto','warn')}})}
 };
 function labRes(){const el=$('#lres');if(!el)return;if(!lab.q.trim()){el.innerHTML='';return}
   el.innerHTML=findProducts(lab.q,6,false).map(p=>`<button class="item" data-act="lab-add" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${money(p.price)}${p.barcode?' · '+esc(p.barcode):' · sin código'}</div></div><span class="badge gray">Agregar</span></button>`).join('')||'<div class="mut sm">Sin resultados</div>'}
@@ -929,7 +964,7 @@ function saveReturn(){
   if(!items.length)return;const ref=retCalc(),m=rt.m,back=rt.back;
   ensureCaja().then(()=>{const caja=openCaja();if(!caja)return;
     const r={id:uid(),no:++S.counters.sale,ts:Date.now(),items,total:-ref,cost:sum(items,i=>i.cost*i.qty),method:m,customerId:s.customerId||'',received:0,change:0,cajaId:caja.id,subtotal:-ref,discount:0,delivery:0,ret:true,ofNo:s.no,ofId:s.id};
-    s.rtn=s.rtn||{};items.forEach(i=>{s.rtn[i.pid]=Math.round(((s.rtn[i.pid]||0)-i.qty)*1000)/1000;const p=prod(i.pid);if(p){if(back)p.stock=Math.round((p.stock-i.qty)*1000)/1000;p.sold=Math.max(0,Math.round(((p.sold||0)+i.qty)*1000)/1000)}});
+    s.rtn=s.rtn||{};items.forEach(i=>{s.rtn[i.pid]=Math.round(((s.rtn[i.pid]||0)-i.qty)*1000)/1000;const p=prod(i.pid);if(p){if(back)moveStock(p,-i.qty);p.sold=Math.max(0,Math.round(((p.sold||0)+i.qty)*1000)/1000)}});
     S.sales.push(r);save();closeModal();toast('Devolución registrada','ok');render()}).catch(()=>{});
 }
 
@@ -938,7 +973,7 @@ function saveReturn(){
 let ped={q:{},off:{}};
 function lastSupplier(pid){for(let i=S.purchases.length-1;i>=0;i--){const x=S.purchases[i];if(x.supplierId&&x.items.some(l=>l.pid===pid))return x.supplierId}return ''}
 function pedGroups(){
-  const g={};S.products.filter(p=>p.stock<=p.min&&!ped.off[p.id]).forEach(p=>{const sid=lastSupplier(p.id);(g[sid]=g[sid]||[]).push(p)});
+  const g={};S.products.filter(p=>!isKit(p)&&p.stock<=p.min&&!ped.off[p.id]).forEach(p=>{const sid=lastSupplier(p.id);(g[sid]=g[sid]||[]).push(p)});
   return Object.entries(g).map(([sid,ps])=>({sid,sp:supp(sid),ps:ps.sort((a,b)=>a.name.localeCompare(b.name))})).sort((a,b)=>(a.sid?0:1)-(b.sid?0:1)||(a.sp?a.sp.name:'').localeCompare(b.sp?b.sp.name:''));
 }
 const pedQty=p=>ped.q[p.id]!==undefined?ped.q[p.id]:Math.max(1,Math.ceil(p.min*2-p.stock));
@@ -1053,7 +1088,7 @@ let invF='todos';
 const INV_WHY=['Conteo de inventario','Producto dañado','Producto vencido','Se perdió o faltó','Regalo o muestra','Otro motivo'];
 VIEWS.inventario={
  html(){
-  const P=S.products,val=sum(P,p=>Math.max(0,p.stock)*p.cost),uds=sum(P,p=>Math.max(0,p.stock));
+  const P=S.products.filter(p=>!isKit(p)),val=sum(P,p=>Math.max(0,p.stock)*p.cost),uds=sum(P,p=>Math.max(0,p.stock));
   const low=P.filter(p=>p.stock>0&&p.stock<=p.min).length,out=P.filter(p=>p.stock<=0).length;
   return `<div class="kpis"><div class="kpi hl"><div class="l">Valor de tu mercancía</div><div class="v">${money(val)}</div></div><div class="kpi"><div class="l">Unidades</div><div class="v">${qfmt(uds)}</div></div><div class="kpi"><div class="l">Por acabarse</div><div class="v">${low}</div></div><div class="kpi"><div class="l">Agotados</div><div class="v">${out}</div></div></div>
   <div class="searchbar mt"><input id="iq" class="in" placeholder="Buscar producto" autocomplete="off"></div>
@@ -1065,8 +1100,8 @@ VIEWS.inventario={
 };
 function ilist(){
   const el=$('#ilist');if(!el)return;
-  const q=norm(($('#iq')||{}).value||'');let r=S.products.slice();
-  if(q)r=r.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q));
+  const q=norm(($('#iq')||{}).value||'');let r=S.products.filter(p=>!isKit(p));
+  if(q)r=r.filter(p=>pkey(p).includes(q)||(p.barcode||'').includes(q));
   if(invF==='bajo')r=r.filter(p=>p.stock>0&&p.stock<=p.min);
   if(invF==='agotado')r=r.filter(p=>p.stock<=0);
   r.sort((a,b)=>(a.stock-a.min)-(b.stock-b.min)||a.name.localeCompare(b.name));
@@ -1129,7 +1164,7 @@ function findProducts(q,limit=40,nameOnly=false){
   if(!q)return S.products.slice().sort((a,b)=>(b.sold||0)-(a.sold||0)||a.name.localeCompare(b.name)).slice(0,limit);
   const exact=S.products.filter(p=>p.barcode&&p.barcode===q);
   if(exact.length)return exact;
-  return S.products.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q)||(!nameOnly&&norm(p.cat).includes(q))).slice(0,limit);
+  return S.products.filter(p=>pkey(p).includes(q)||(p.barcode||'').includes(q)||(!nameOnly&&norm(p.cat).includes(q))).slice(0,limit);
 }
 function enterSale(v){
   if(!v)return;
@@ -1258,9 +1293,9 @@ function finishSale(){
   if(pay.m==='fiado'){const cid=$('#fcust')?$('#fcust').value:pay.cust;if(!cid){toast('Elige a qué cliente le fías','bad');return}pay.cust=cid}
   const caja=openCaja();if(!caja){toast('Abre la caja primero','bad');return}
   const sale={id:uid(),no:++S.counters.sale,ts:Date.now(),items:cart.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.price,cost:l.cost,bulk:!!l.bulk,iva:(prod(l.pid)||{}).iva||0})),total:t,cost:sum(cart,l=>l.cost*l.qty),method:pay.m,customerId:pay.m==='fiado'?pay.cust:(cartX.cust||''),received,change,cajaId:caja.id,subtotal:cartSub(),discount:cartDisc(),delivery:cartX.dom||0};
-  for(const l of cart){const p=prod(l.pid);if(p){p.stock=Math.round((p.stock-l.qty)*1000)/1000;p.sold=(p.sold||0)+l.qty}}
+  for(const l of cart){const p=prod(l.pid);if(p){moveStock(p,-l.qty);p.sold=(p.sold||0)+l.qty}}
   S.sales.push(sale);save();
-  const neg=sale.items.filter(i=>prod(i.pid)&&prod(i.pid).stock<0).map(i=>i.name);
+  const neg=[...new Set(sale.items.flatMap(i=>{const p=prod(i.pid);return !p?[]:isKit(p)?p.kit.map(c=>prod(c.pid)).filter(q=>q&&q.stock<0):(p.stock<0?[p]:[])}).map(q=>q.name))];
   cart=[];resetCartX();closeModal();renderCart();renderRes();
   const ov=modal('Venta registrada ✔',`
     <div class="center"><div class="b" style="font-size:30px;letter-spacing:-.6px">${money(sale.total)}</div>
@@ -1298,7 +1333,9 @@ function saleText(s){
 VIEWS.productos={
  html(q){
   const f=q.f||'todos';
-  return `<div class="searchbar"><input id="pq" class="in" placeholder="Buscar por nombre o código" autocomplete="off"><button class="btn soft icon" data-act="scan-find" aria-label="Escanear">${ic('scan')}</button><button class="btn soft" data-act="imp-open">${ic('up','sm')}<span>Importar</span></button><button class="btn soft" data-act="go" data-to="etiquetas">${ic('tag','sm')}<span>Etiquetas</span></button><button class="btn pri" data-act="new-product">${ic('plus','sm')}<span>Nuevo</span></button></div>
+  return `<div class="searchbar"><input id="pq" class="in" placeholder="Buscar producto, marca o código" autocomplete="off"><button class="btn soft icon" data-act="scan-find" aria-label="Escanear">${ic('scan')}</button></div>
+  <div class="g2 mt"><button class="btn pri" data-act="new-product">${ic('plus','sm')}<span>Nuevo producto</span></button><button class="btn acc" data-act="new-kit">${ic('box','sm')}<span>Kit o lista escolar</span></button></div>
+  <div class="g2 mt"><button class="btn soft" data-act="imp-open">${ic('up','sm')}<span>Importar</span></button><button class="btn soft" data-act="go" data-to="etiquetas">${ic('tag','sm')}<span>Etiquetas</span></button></div>
   <div class="chips mt" id="pf">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados'],['vence','Por vencer']].map(x=>`<button data-act="pfilter" data-f="${x[0]}" class="${f===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
   <div class="panel mt"><div id="plist" class="list"></div></div>`;
  },
@@ -1307,7 +1344,7 @@ VIEWS.productos={
 function plist(){
   const el=$('#plist');if(!el)return;
   const q=norm($('#pq').value.trim());let r=S.products.slice();
-  if(q)r=r.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q)||norm(p.cat).includes(q));
+  if(q)r=r.filter(p=>pkey(p).includes(q)||(p.barcode||'').includes(q)||norm(p.cat).includes(q));
   if(window._pf==='bajo')r=r.filter(p=>p.stock>0&&p.stock<=p.min);
   if(window._pf==='agotado')r=r.filter(p=>p.stock<=0);
   if(window._pf==='vence')r=r.filter(p=>{const x=expDays(p);return x!==null&&x<=15}).sort((a,b)=>expDays(a)-expDays(b));
@@ -1315,8 +1352,71 @@ function plist(){
   if(!S.products.length){el.innerHTML=`<div class="empty"><div class="big">📦</div><b>Crea tu primer producto</b>Escanea el código de barras o escribe el nombre y el precio.<div class="mt"><button class="btn pri" data-act="new-product">Crear producto</button></div></div>`;return}
   if(!r.length){el.innerHTML=`<div class="empty"><b>Sin resultados</b>Prueba con otro nombre o filtro.</div>`;return}
   el.innerHTML=r.slice(0,200).map(p=>{
-    const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Bajo · '+qfmt(p.stock)]:['ok',qfmt(p.stock)+(p.bulk?' kg':' und')],xd=expDays(p),xt=xd===null?'':(xd<0?' · <span class="bad">vencido</span>':xd<=15?` · <span class="warn">vence en ${xd} ${plural(xd,'día','días')}</span>`:'');
-    return `<button class="item" data-act="edit-product" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.barcode||'Sin código')}${p.cat?' · '+esc(p.cat):''}${xt}</div></div><div class="right"><div class="b">${money(p.price)}${p.bulk?'<span class="xs mut"> /kg</span>':''}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+    const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Bajo · '+qfmt(p.stock)]:['ok',qfmt(p.stock)+(isKit(p)?' kits':(p.bulk?' kg':' und'))],xd=expDays(p),xt=xd===null?'':(xd<0?' · <span class="bad">vencido</span>':xd<=15?` · <span class="warn">vence en ${xd} ${plural(xd,'día','días')}</span>`:'');
+    return `<button class="item" data-act="edit-product" data-id="${p.id}">${avatarOf(p)}<div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${isKit(p)?`<span class="badge kit">Kit · ${p.kit.length} ${plural(p.kit.length,'producto','productos')}</span> · `:''}${pbr(p)}${esc(p.barcode||'Sin código')}${!isKit(p)&&p.cat?' · '+esc(p.cat):''}${xt}</div></div><div class="right"><div class="b">${money(p.price)}${p.bulk?'<span class="xs mut"> /kg</span>':''}</div><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+}
+
+/* ---------- KITS Y LISTAS ESCOLARES ---------- */
+let kt={id:'',items:[],auto:true};
+function kitAdd(pid){
+  const p=prod(pid);if(!p||isKit(p))return;
+  const l=kt.items.find(x=>x.pid===pid);if(l)l.qty+=1;else kt.items.push({pid,qty:1});
+  const q=$('#ktq');if(q){q.value='';ktRes()}
+  ktDraw();toast(p.name+' agregado','ok');
+}
+function ktRes(){
+  const el=$('#ktres'),q=(($('#ktq')||{}).value||'').trim();if(!el)return;
+  if(!q){el.innerHTML='';return}
+  const r=findProducts(q,6,false).filter(p=>!isKit(p));
+  el.innerHTML=r.length?r.map(p=>`<button type="button" class="item" data-act="kit-add" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${pbr(p)}${money(p.price)} · hay ${qfmt(p.stock)}</div></div>${ic('plus','sm')}</button>`).join(''):'<div class="mut sm">No encontré ese producto. Créalo primero en Productos.</div>';
+}
+function ktDraw(){
+  const el=$('#ktlines');if(!el)return;
+  el.innerHTML=kt.items.length?kt.items.map((c,i)=>{const p=prod(c.pid);if(!p)return '';
+    return `<div class="kit-line"><div class="kn"><b>${esc(p.name)}</b><small>${pbr(p)}${money(p.price)} c/u · hay ${qfmt(p.stock)}</small></div><div class="qty"><button type="button" data-act="kit-qty" data-i="${i}" data-d="-1">−</button><input value="${qfmt(c.qty)}" inputmode="numeric" data-ktq="${i}"><button type="button" data-act="kit-qty" data-i="${i}" data-d="1">+</button></div><button type="button" class="btn sm danger icon" data-act="kit-del" data-i="${i}" aria-label="Quitar">${ic('trash','sm')}</button></div>`}).join(''):'<div class="empty" style="padding:14px">Agrega los productos que lleva el kit</div>';
+  ktTotals(true);
+}
+function ktTotals(redraw){
+  const box=$('#kttot'),pr=$('#ktprice');if(!box)return;
+  const tmp={kit:kt.items},ref=kitRef(tmp),cost=Math.round(kitCost(tmp));
+  if(kt.auto&&pr&&(redraw||!pr.value))pr.value=ref?fmtInt(ref):'';
+  const price=digits(pr&&pr.value),arm=kt.items.length?kitStock(tmp):0;
+  box.innerHTML=kt.items.length?`<div class="kit-sum">
+    <div class="prow"><span>Todo suelto costaría</span><b>${money(ref)}</b></div>
+    <div class="prow"><span>Te cuesta armarlo</span><b>${money(cost)}</b></div>
+    ${price?`<div class="prow"><span>Ganas con el kit</span><b class="${price>=cost?'ok':'bad'}">${money(price-cost)}${price?` (${Math.round((price-cost)/price*1000)/10}%)`:''}</b></div>`:''}
+    ${price&&ref>price?`<div class="prow"><span>El cliente ahorra</span><b>${money(ref-price)} (${Math.round((ref-price)/ref*1000)/10}%)</b></div>`:''}
+    <div class="prow"><span>Con tu inventario se pueden armar</span><b>${qfmt(arm)}</b></div></div>`:'';
+}
+function kitForm(id){
+  const p=id?prod(id):null;
+  kt={id:id||'',items:p?p.kit.map(c=>({...c})):[],auto:!p};
+  modal(p?'Editar kit':'Nuevo kit o lista escolar',`<form data-form="kit" data-id="${p?p.id:''}">
+   <p class="mut sm" style="margin:-2px 0 12px">Junta varios productos en uno solo, con un único código. Al vender el kit, Cuadra descuenta cada producto del inventario.</p>
+   <div class="fg"><label class="f">Nombre del kit o lista</label><input class="in" name="name" required value="${esc(p?p.name:'')}" placeholder="Ej: Lista escolar 3° primaria" ${p?'':'autofocus'}></div>
+   <div class="fg"><label class="f">Código del kit</label><div class="searchbar"><input class="in grow" name="barcode" id="pbc" value="${esc(p?p.barcode:'')}" placeholder="Escanea, escribe o crea uno" inputmode="numeric"><button type="button" class="btn soft icon" data-act="scan-field" aria-label="Escanear">${ic('scan')}</button><button type="button" class="btn sm" style="min-height:46px" data-act="gen-code">Crear</button></div><div class="mut xs" style="margin-top:4px">Lo mejor es crear un código propio, imprimirlo en Etiquetas y pegarlo en la bolsa del kit.</div></div>
+   <div class="fg"><label class="f">Agrega los productos del kit</label><div class="searchbar"><input class="in grow" id="ktq" placeholder="Escribe o escanea el producto" autocomplete="off"><button type="button" class="btn pri icon" data-act="kit-scan" aria-label="Escanear">${ic('scan')}</button></div><div id="ktres" class="mt"></div></div>
+   <div id="ktlines"></div><div id="kttot"></div>
+   <div class="fg"><label class="f">Precio de venta del kit</label><input class="in money" name="price" id="ktprice" inputmode="numeric" required placeholder="0" value="${p&&p.price?fmtInt(p.price):''}"></div>
+   <button class="btn pri big">Guardar kit</button>
+   ${p?`<button type="button" class="btn danger big mt" data-act="del-product" data-id="${p.id}">${ic('trash','sm')} Eliminar kit</button>`:''}
+  </form>`,{wide:true});
+  const q=$('#ktq');
+  q.addEventListener('input',ktRes);
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const v=q.value.trim();if(!v)return;const ex=S.products.find(x=>x.barcode===v&&!isKit(x))||findProducts(v,1,false).filter(x=>!isKit(x))[0];if(ex)kitAdd(ex.id);else toast('No encontré ese producto','warn')}});
+  ktDraw();
+}
+function saveKit(f){
+  const fd=new FormData(f),id=f.dataset.id,name=(fd.get('name')||'').trim(),barcode=(fd.get('barcode')||'').trim(),price=digits(fd.get('price'));
+  if(!name)return toast('Escribe el nombre del kit','bad');
+  if(!kt.items.length)return toast('Agrega al menos un producto al kit','bad');
+  if(!price)return toast('Escribe el precio del kit','bad');
+  if(barcode){const dup=S.products.find(p=>p.barcode===barcode&&p.id!==id);if(dup)return toast(`Ese código ya es de “${dup.name}”`,'bad')}
+  const items=kt.items.filter(c=>prod(c.pid)).map(c=>({pid:c.pid,qty:Math.max(1,Math.round(+c.qty||1))}));
+  const o={name,barcode,price,kit:items,cat:'Kits y listas'};
+  if(id){Object.assign(prod(id),o)}else S.products.push({id:uid(),sold:0,brand:'',ref:'',img:'',fav:false,net:0,unit:'',bulk:false,exp:'',ws:null,stock:0,min:0,cost:0,...o});
+  syncKits();save();closeModal();toast(id?'Kit actualizado':'Kit creado','ok');
+  const {r}=parseHash();if(r==='productos')plist();else render();
 }
 
 /* ---------- foto del producto ---------- */
@@ -1336,14 +1436,16 @@ function photoPick(input){
 }
 
 function productForm(id,pre={}){
-  const p=id?prod(id):null;const d=p||{name:pre.name||'',barcode:pre.barcode||'',cat:'',cost:0,price:0,stock:0,min:3,loc:'Piso de venta'};
+  const p=id?prod(id):null;const d=p||{name:pre.name||'',barcode:pre.barcode||'',brand:'',ref:'',cat:'',cost:0,price:0,stock:0,min:3,loc:'Piso de venta'};
   const ov=modal(p?'Editar producto':'Nuevo producto',`
-   <form data-form="product" data-id="${p?p.id:''}" data-addcart="${pre.addToCart?1:''}" data-buy="${pre.buy?1:''}">
+   <form data-form="product" data-id="${p?p.id:''}" data-addcart="${pre.addToCart?1:''}" data-buy="${pre.buy?1:''}" data-cam="${pre.cam?1:''}">
     <div class="fg"><label class="f">Foto del producto <span class="xs">(ayuda a encontrarlo al vender)</span></label>
      <div class="pphoto"><div class="pprev" id="pprev">${d.img?`<img src="${d.img}" alt="">`:ic('camera','lg')}</div>
       <div class="pbtns"><label class="btn pri" for="pfile">${ic('camera','sm')} Tomar foto</label><label class="btn soft" for="pfile2">Elegir de la galería</label><button type="button" class="btn sm ${d.img?'':'hide'}" id="pquit" data-act="photo-del">Quitar foto</button></div>
       <input type="file" id="pfile" accept="image/*" capture="environment" class="hide"><input type="file" id="pfile2" accept="image/*" class="hide"><input type="hidden" name="img" id="pimgv" value="${d.img||''}"></div></div>
     <div class="fg"><label class="f">Nombre</label><input class="in" name="name" required value="${esc(d.name)}" placeholder="Ej: Arroz 500 g" ${p?'':'autofocus'}></div>
+    <div class="g2"><div class="fg"><label class="f">Marca <span class="xs">(opcional)</span></label><input class="in" name="brand" value="${esc(d.brand||'')}" placeholder="Ej: Norma"></div>
+    <div class="fg"><label class="f">Referencia <span class="xs">(opcional)</span></label><input class="in" name="ref" value="${esc(d.ref||'')}" placeholder="Ej: 4521"></div></div>
     <div class="fg"><label class="f">Código de barras</label><div class="searchbar"><input class="in grow" name="barcode" id="pbc" value="${esc(d.barcode)}" placeholder="Escanea o escribe (opcional)" inputmode="numeric"><button type="button" class="btn soft icon" data-act="scan-field" aria-label="Escanear">${ic('scan')}</button><button type="button" class="btn sm" style="min-height:46px" data-act="gen-code">Crear</button></div></div>
     <div class="fg"><label class="f">Contenido del empaque <span class="xs">(para el precio por kilo, litro, etc.)</span></label><div class="g2"><input class="in" name="net" inputmode="decimal" value="${d.net?qfmt(d.net):''}" placeholder="Ej: 500"><select class="in" name="unit">${[['','Sin medida'],['g','gramos (g)'],['kg','kilos (kg)'],['ml','mililitros (ml)'],['l','litros (L)'],['m','metros (m)'],['cm','centímetros (cm)'],['und','unidades en el paquete']].map(u=>`<option value="${u[0]}" ${(d.unit||'')===u[0]?'selected':''}>${u[1]}</option>`).join('')}</select></div><div class="mut sm" id="pumh" style="margin-top:6px"></div></div>
     <div class="g2"><div class="fg"><label class="f">Precio de compra</label><input class="in money" name="cost" inputmode="numeric" value="${d.cost?fmtInt(d.cost):''}" placeholder="0"></div>
@@ -1352,7 +1454,7 @@ function productForm(id,pre={}){
     <div class="mut xs" style="margin:-6px 0 8px">Escribe el costo y el margen que quieres ganar, y Cuadra calcula el precio de venta. Ejemplo: costo $20.000 y margen 20% → $20.000 ÷ 0,80 = <b>$25.000</b>. También puedes escribir el precio y verás el margen.</div>
     <div class="mut sm" id="margin" style="margin:0 0 12px;line-height:1.5"></div>
     <label class="favchk"><input type="checkbox" name="bulk" ${d.bulk?'checked':''}> <span>⚖️ Se vende por peso: el precio de venta es <b>por kilo</b> y el stock va en kilos</span></label>
-    <div class="fg"><label class="f">Precio por mayor <span class="xs">(opcional: precio especial desde cierta cantidad)</span></label><div class="g2"><input class="in" name="wsmin" inputmode="decimal" value="${d.ws&&d.ws.min?qfmt(d.ws.min):''}" placeholder="Desde cuántas"><input class="in money" name="wsprice" inputmode="numeric" value="${d.ws&&d.ws.price?fmtInt(d.ws.price):''}" placeholder="Precio c/u"></div></div>
+    <div class="fg"><label class="f">Precio por mayor o por docena <span class="xs">(opcional: precio especial desde cierta cantidad; para docena escribe 12)</span></label><div class="g2"><input class="in" name="wsmin" inputmode="decimal" value="${d.ws&&d.ws.min?qfmt(d.ws.min):''}" placeholder="Desde cuántas"><input class="in money" name="wsprice" inputmode="numeric" value="${d.ws&&d.ws.price?fmtInt(d.ws.price):''}" placeholder="Precio c/u"></div></div>
     <div class="fg"><label class="f">Fecha de vencimiento <span class="xs">(opcional)</span></label><input class="in" type="date" name="exp" value="${esc(d.exp||'')}"></div>
     ${S.meta.ivaOn?`<div class="fg"><label class="f">IVA del producto <span class="xs">(el precio de venta ya lo incluye)</span></label><select class="in" name="iva">${[[0,'Sin IVA (excluido o exento)'],[5,'IVA 5%'],[19,'IVA 19%']].map(o=>`<option value="${o[0]}" ${(p?(d.iva||0):19)===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`:''}
     <div class="g2"><div class="fg"><label class="f">Stock actual</label><input class="in" name="stock" inputmode="decimal" value="${qfmt(d.stock)}"></div>
@@ -1381,7 +1483,7 @@ function marginHint(){
 }
 function saveProduct(f){
   const fd=new FormData(f),id=f.dataset.id;
-  const o={name:fd.get('name').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':'',bulk:fd.get('bulk')==='on',exp:fd.get('exp')||'',ws:(dec(fd.get('wsmin'))>0&&digits(fd.get('wsprice'))>0)?{min:dec(fd.get('wsmin')),price:digits(fd.get('wsprice'))}:null};
+  const o={name:fd.get('name').trim(),brand:(fd.get('brand')||'').trim(),ref:(fd.get('ref')||'').trim(),barcode:fd.get('barcode').trim(),cat:(fd.get('catsel')==='__otra'?(fd.get('cat')||'').trim():(fd.get('catsel')||'')),cost:digits(fd.get('cost')),price:digits(fd.get('price')),stock:dec(fd.get('stock')),min:dec(fd.get('min')),img:fd.get('img')||'',fav:fd.get('fav')==='on',net:dec(fd.get('net')),unit:fd.get('net')?fd.get('unit')||'':'',bulk:fd.get('bulk')==='on',exp:fd.get('exp')||'',ws:(dec(fd.get('wsmin'))>0&&digits(fd.get('wsprice'))>0)?{min:dec(fd.get('wsmin')),price:digits(fd.get('wsprice'))}:null};
   if(fd.has('iva'))o.iva=+fd.get('iva');
   if(!o.name){toast('Escribe el nombre','bad');return}
   if(!o.price){toast('Escribe el precio de venta','bad');return}
@@ -1390,7 +1492,7 @@ function saveProduct(f){
   if(id){p=prod(id);Object.assign(p,o)}else{p={id:uid(),sold:0,...o};S.products.push(p)}
   save();closeModal();toast('Producto guardado','ok');
   if(f.dataset.addcart&&!id){addCart(p.id)}
-  if(f.dataset.buy&&!id&&pd){addPurchaseLine(p.id)}
+  if(f.dataset.buy&&!id&&pd){buyAsk(p.id,!!f.dataset.cam)}
   const {r}=parseHash();if(r==='productos')plist();if(r==='vender'){renderRes();renderCart()}if(r==='home'||r==='compra')render();
 }
 
@@ -1574,7 +1676,8 @@ VIEWS.compra={
   return `<div class="panel"><h3>Proveedor</h3><div class="searchbar"><select class="in grow" id="psup"><option value="">Sin proveedor</option>${S.suppliers.map(s=>`<option value="${s.id}" ${s.id===pd.supplierId?'selected':''}>${esc(s.name)}</option>`).join('')}</select><button class="btn soft" data-act="new-supp-p">+ Nuevo</button></div>
    <div class="fg mt"><label class="f">Número de factura (opcional)</label><input class="in" id="pinv" value="${esc(pd.invoice)}"></div></div>
   <div class="panel"><h3>Productos que llegaron</h3>
-   <div class="searchbar"><input id="pq2" class="in grow" placeholder="Escanea o busca" autocomplete="off"><button class="btn soft icon" data-act="scan-buy" aria-label="Escanear">${ic('scan')}</button></div>
+   <div class="searchbar"><input id="pq2" class="in grow" placeholder="Escanea o busca" autocomplete="off"><button class="btn pri" data-act="scan-buy" aria-label="Escanear">${ic('scan')}<span>Escanear</span></button></div>
+   <p class="mut xs" style="margin:6px 2px 0">Escaneas un producto, escribes cuántas llegaron y sigues con el siguiente.</p>
    <div id="pres" class="mt"></div><div id="plines"></div></div>
   <div class="panel"><h3>Forma de pago</h3><div class="pm" id="pmeth">
    <button data-act="pmeth" data-m="efectivo">Efectivo<small>Sale de la caja</small></button><button data-act="pmeth" data-m="digital">Transferencia<small>No afecta la caja</small></button><button data-act="pmeth" data-m="credito" style="grid-column:span 2">A crédito<small>Lo pagas después al proveedor</small></button></div>
@@ -1584,14 +1687,30 @@ VIEWS.compra={
  after(){
   $('#psup').onchange=e=>pd.supplierId=e.target.value;$('#pinv').oninput=e=>pd.invoice=e.target.value;
   const q=$('#pq2');q.addEventListener('input',purRes);
-  q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const v=q.value.trim();if(!v)return;const ex=S.products.find(p=>p.barcode===v);if(ex){addPurchaseLine(ex.id);q.value='';purRes()}else{const r=findProducts(v,2);if(r.length===1){addPurchaseLine(r[0].id);q.value='';purRes()}else if(!r.length&&/^\d{5,}$/.test(v)){productForm(null,{barcode:v,buy:true})}}}});
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const v=q.value.trim();if(!v)return;const ex=S.products.find(p=>p.barcode===v&&!isKit(p));if(ex){q.value='';purRes();buyAsk(ex.id,false)}else{const r=findProducts(v,2).filter(p=>!isKit(p));if(r.length===1){q.value='';purRes();buyAsk(r[0].id,false)}else if(!r.length&&/^\d{5,}$/.test(v)){productForm(null,{barcode:v,buy:true})}}}});
   purLines();pmethUI();
  }
 };
 function purRes(){
   const v=$('#pq2').value.trim(),el=$('#pres');if(!v){el.innerHTML='';return}
-  const r=findProducts(v,6);
+  const r=findProducts(v,6).filter(p=>!isKit(p));
   el.innerHTML=r.length?r.map(p=>`<button class="item" data-act="pur-add" data-id="${p.id}"><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">Costo actual ${money(p.cost)} · stock ${qfmt(p.stock)}</div></div>${ic('plus','sm')}</button>`).join(''):`<div class="tip">No existe. <button data-act="new-product" data-buy="1" data-name="${esc(v)}">Crear producto</button></div>`;
+}
+function scanBuy(){
+  scanner(c=>{const p=S.products.find(x=>x.barcode===c&&!isKit(x));
+    if(p)buyAsk(p.id,true);
+    else if(S.products.some(x=>x.barcode===c))toast('Ese código es de un kit; los kits no se compran','warn');
+    else{toast(`Código ${c} no existe. Créalo ahora.`,'warn');productForm(null,{barcode:c,buy:true,cam:true})}
+  },false);
+}
+function buyAsk(id,cam){
+  const p=prod(id);if(!p||!pd)return;const l=pd.items.find(x=>x.pid===id),c0=(l&&l.cost)||p.cost||0;
+  modal('¿Cuántas llegaron?',`<form data-form="buyqty" data-id="${id}" data-cam="${cam?1:''}">
+   <div class="b" style="font-size:18px">${esc(p.name)}</div>
+   <div class="mut sm" style="margin:2px 0 12px">${p.brand?esc(p.brand)+' · ':''}Stock actual: ${qfmt(p.stock)}${l?` · ya llevas ${qfmt(l.qty)} en esta compra`:''}</div>
+   <div class="g2"><div class="fg"><label class="f">Unidades que llegaron</label><input class="in" name="qty" inputmode="decimal" required autofocus placeholder="Ej: 24" style="font-size:24px;font-weight:800;text-align:center;min-height:56px"></div>
+   <div class="fg"><label class="f">Costo unitario</label><input class="in money" name="cost" inputmode="numeric" value="${c0?fmtInt(c0):''}" placeholder="0" style="min-height:56px"></div></div>
+   <button class="btn pri big">${cam?'Agregar y escanear el siguiente':'Agregar a la compra'}</button></form>`);
 }
 function addPurchaseLine(id){
   const p=prod(id);if(!p)return;const l=pd.items.find(x=>x.pid===id);
@@ -1703,7 +1822,7 @@ function repBody(){
     el.innerHTML=`<div class="row between mb"><b>Total por cobrar: ${money(sum(rows,x=>x.b))}</b>${csvBtn()}</div><div class="panel">${rows.length?`<div class="list">${rows.map(x=>`<button class="item" data-act="cust-detail" data-id="${x.c.id}"><div class="avatar">${esc(x.c.name[0].toUpperCase())}</div><div class="grow"><div class="t">${esc(x.c.name)}</div><div class="s">${esc(x.c.phone||'')}</div></div><div class="b bad">${money(x.b)}</div></button>`).join('')}</div>`:'<div class="empty"><div class="big">✅</div><b>Nadie te debe</b></div>'}</div>`;
   }
   if(rep.tab==='inventario'){
-    const rows=S.products.slice().sort((x,y)=>x.name.localeCompare(y.name));
+    const rows=S.products.filter(p=>!isKit(p)).sort((x,y)=>x.name.localeCompare(y.name));
     const val=sum(rows,p=>Math.max(0,p.stock)*p.cost),vv=sum(rows,p=>Math.max(0,p.stock)*p.price);
     lastTable={name:'inventario',head:['Producto','Código','Stock','Costo','Precio','Valor al costo'],rows:rows.map(p=>[p.name,p.barcode||'',p.stock,p.cost,p.price,Math.max(0,p.stock)*p.cost])};
     el.innerHTML=`<div class="kpis"><div class="kpi hl"><div class="l">Inventario al costo</div><div class="v">${money(val)}</div></div><div class="kpi"><div class="l">Si lo vendes todo</div><div class="v">${money(vv)}</div></div></div><div class="row between mt mb"><b>${rows.length} productos</b>${csvBtn()}</div><div class="panel scroll-x">${rows.length?`<table class="t"><tr><th>Producto</th><th class="r">Stock</th><th class="r">Costo</th><th class="r">Valor</th></tr>${rows.map(p=>`<tr><td>${esc(p.name)}</td><td class="r ${p.stock<=0?'bad':p.stock<=p.min?'warn':''}">${qfmt(p.stock)}</td><td class="r">${money(p.cost)}</td><td class="r">${money(Math.max(0,p.stock)*p.cost)}</td></tr>`).join('')}</table>`:'<div class="empty">Sin productos</div>'}</div>`;
@@ -1986,7 +2105,7 @@ document.addEventListener('click',async e=>{
    'scan-sale'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p){addCart(p.id)}else{closeModal();toast(`Código ${c} no existe`,'warn');productForm(null,{barcode:c,addToCart:true})}},true)},
    'scan-find'(){scanner(c=>{$('#pq').value=c;plist();const p=S.products.find(x=>x.barcode===c);toast(p?p.name:'Código '+c+' no existe',p?'ok':'warn')},false)},
    'scan-field'(){scanner(c=>{const i=$('#pbc');if(i){i.value=c;const p=S.products.find(x=>x.barcode===c);toast(p?`Ya existe: ${p.name}`:'Código leído',p?'warn':'ok')}},false)},
-   'scan-buy'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p)addPurchaseLine(p.id);else{closeModal();productForm(null,{barcode:c,buy:true})}},true)},
+   'scan-buy'(){scanBuy()},
    'gen-code'(){$('#pbc').value=newCode()},
    'add-cart'(){addCart(d.id);const q=$('#vq');if(q&&q.value){q.value='';renderRes()}if(q&&!$('.ovl')&&innerWidth>=900)q.focus()},
    'clear-cart'(){clearCart()},
@@ -2008,7 +2127,12 @@ document.addEventListener('click',async e=>{
    'print-sale'(){printSale(d.id)},
    'wa-sale'(){const s=S.sales.find(x=>x.id===d.id);window.open(waLink((cust(s.customerId)||{}).phone||'',saleText(s)),'_blank')},
    'new-product'(){productForm(null,{barcode:d.code||'',name:d.name||'',buy:!!d.buy})},
-   'edit-product'(){productForm(d.id)},
+   'edit-product'(){const p=prod(d.id);isKit(p)?kitForm(d.id):productForm(d.id)},
+   'new-kit'(){kitForm()},
+   'kit-add'(){kitAdd(d.id)},
+   'kit-del'(){kt.items.splice(+d.i,1);ktDraw()},
+   'kit-qty'(){const l=kt.items[+d.i];l.qty=Math.max(1,(+l.qty||1)+(+d.d));ktDraw()},
+   'kit-scan'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p&&!isKit(p))kitAdd(p.id);else if(p)toast('Un kit no puede llevar otro kit','warn');else toast(`Código ${c} no existe`,'warn')},true)},
    catalog(){catalog()},
    'logo-del'(){$('#logov').value='';$('#lprev').innerHTML=ic('camera','lg');$('#lquit').classList.add('hide')},
    'photo-del'(){$('#pimgv').value='';$('#pprev').innerHTML=ic('camera','lg');$('#pquit').classList.add('hide')},
@@ -2017,7 +2141,7 @@ document.addEventListener('click',async e=>{
    'scan-price'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);closeModal();if(p){priceId=p.id;priceDraw()}else toast(`Código ${c} no existe`,'warn')})},
    'adj-stock'(){adjustForm(d.id)},
    invf(){invF=d.f;render()},
-   'del-product'(){ask('Eliminar producto','Se borra del inventario. Las ventas pasadas se conservan.','Eliminar',true).then(ok=>{if(ok){S.products=S.products.filter(p=>p.id!==d.id);save();closeModal();toast('Producto eliminado');render()}})},
+   'del-product'(){const inKit=S.products.find(k=>isKit(k)&&k.kit.some(c=>c.pid===d.id));if(inKit){toast(`Es parte del kit “${inKit.name}”. Quítalo del kit primero.`,'warn');return}ask('Eliminar producto','Se borra del inventario. Las ventas pasadas se conservan.','Eliminar',true).then(ok=>{if(ok){S.products=S.products.filter(p=>p.id!==d.id);save();closeModal();toast('Producto eliminado');render()}})},
    pfilter(){window._pf=d.f;$$('#pf button').forEach(b=>b.classList.toggle('on',b===el));plist()},
    'new-cust'(){custForm('')},
    'edit-cust'(){closeModal();custForm(d.id)},
@@ -2034,6 +2158,7 @@ document.addEventListener('click',async e=>{
    mvp(){mvP=d.p;render()},
    seg2(){el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));el.closest('form').elements.type.value=d.v},
    'mov-form'(){movForm()},
+   'lab-scan'(){scanner(c=>{const p=S.products.find(x=>x.barcode===c);if(p){labAdd(p.id);toast(p.name+' · etiqueta agregada','ok')}else toast(`Código ${c} no existe`,'warn')},true)},
    'lab-mode'(){lab.mode=d.v;render()},
    'lab-size'(){lab.size=d.v;render()},
    'lab-add'(){labAdd(d.id);lab.q='';$('#lq').value=''},
@@ -2053,7 +2178,7 @@ document.addEventListener('click',async e=>{
    ctab(){window._ctab=d.t;render()},
    'new-purchase'(){pd=null;go('compra')},
    pmeth(){pd.method=d.m;pmethUI()},
-   'pur-add'(){addPurchaseLine(d.id);$('#pq2').value='';purRes()},
+   'pur-add'(){$('#pq2').value='';purRes();buyAsk(d.id,false)},
    'pur-del'(){pd.items.splice(+d.i,1);purLines()},
    'save-purchase'(){savePurchase()},
    'new-supp'(){suppForm('')},
@@ -2087,7 +2212,7 @@ document.addEventListener('click',async e=>{
    'ret-back'(){rt.back=el.checked},
    'ret-m'(){rt.m=d.v;retDraw()},
    'ret-ok'(){saveReturn()},
-   'void-sale'(){ask('Anular venta','Los productos vuelven al inventario y la venta deja de contar.','Anular',true).then(ok=>{if(!ok)return;const s=S.sales.find(x=>x.id===d.id);s.void=true;s.items.forEach(i=>{const p=prod(i.pid);if(p){p.stock=Math.round((p.stock+i.qty)*1000)/1000;p.sold=Math.max(0,(p.sold||0)-i.qty)}});save();$$('.ovl').forEach(o=>o.remove());toast('Venta anulada');render()})},
+   'void-sale'(){ask('Anular venta','Los productos vuelven al inventario y la venta deja de contar.','Anular',true).then(ok=>{if(!ok)return;const s=S.sales.find(x=>x.id===d.id);s.void=true;s.items.forEach(i=>{const p=prod(i.pid);if(p){moveStock(p,i.qty);p.sold=Math.max(0,(p.sold||0)-i.qty)}});save();$$('.ovl').forEach(o=>o.remove());toast('Venta anulada');render()})},
    backup(){doBackup()},
    restore(){$('#rfile').click()},
    'load-demo'(){ask('Cargar datos de ejemplo','Reemplaza los datos que tengas ahora por datos de práctica.','Cargar',true).then(ok=>{if(ok){loadDemo();toast('Datos de ejemplo listos','ok');go('home');render()}})},
@@ -2102,6 +2227,12 @@ document.addEventListener('submit',e=>{
     if(fd.get('mode')==='demo'){loadDemo()}else{save()}
     location.hash='#/home';shell();render();if(!S.meta.guide)setTimeout(()=>guide(0),500);return}
   if(k==='product')saveProduct(f);
+  if(k==='kit')saveKit(f);
+  if(k==='buyqty'){const fd=new FormData(f),id=f.dataset.id,p=prod(id),q=dec(fd.get('qty')),cost=digits(fd.get('cost')),cam=!!f.dataset.cam;
+    if(!p||!pd)return;if(!(q>0))return toast('Escribe cuántas unidades llegaron','warn');
+    const l=pd.items.find(x=>x.pid===id);if(l){l.qty=Math.round((l.qty+q)*1000)/1000;if(cost)l.cost=cost}else pd.items.push({pid:id,name:p.name,qty:q,cost:cost||p.cost||0});
+    closeModal();purLines();toast(`${p.name} · ${qfmt(q)} und`,'ok');
+    if(cam)setTimeout(scanBuy,250);else{const i=$('#pq2');i&&i.focus()}return}
   if(k==='cust')saveCust(f);
   if(k==='supp'){const fd=new FormData(f),id=f.dataset.id,o={name:fd.get('name').trim(),phone:fd.get('phone').replace(/\D/g,'')};let s;if(id){s=supp(id);Object.assign(s,o)}else{s={id:uid(),...o};S.suppliers.push(s)}save();const ov=modalEl(),cb=ov&&ov._after;closeModal();toast('Proveedor guardado','ok');cb?cb(s):render()}
   if(k==='abono')saveAbono(f);
@@ -2146,6 +2277,8 @@ document.addEventListener('input',e=>{
     if(t.value===''){box.classList.add('hide');return}
     const d=c-exp;box.className='tip '+(d===0?'ok':'warn');box.innerHTML=d===0?'✔ ¡Cuadra perfecto!':d>0?`Te sobran ${money(d)}`:`Te faltan ${money(-d)}`;
   }
+  if(t.id==='ktprice'){kt.auto=false;ktTotals()}
+  if(t.dataset&&t.dataset.ktq!==undefined){const l=kt.items[+t.dataset.ktq];if(l){l.qty=Math.max(1,Math.round(dec(t.value))||1);ktTotals(kt.auto)}}
   if(t.dataset&&t.dataset.pl!==undefined){const l=pd.items[+t.dataset.pl];l[t.dataset.f]=t.dataset.f==='qty'?dec(t.value):digits(t.value);purTotal()}
 });
 document.addEventListener('change',e=>{

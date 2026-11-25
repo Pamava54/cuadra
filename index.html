@@ -57,11 +57,12 @@ nav.nav a.on svg{background:var(--pri-l);padding:4px 16px;width:24px;height:24px
   .top{grid-column:2;grid-row:1}
   main{grid-column:2;grid-row:2;padding-bottom:40px;padding:22px 26px}
   nav.nav{position:sticky;top:0;grid-column:1;grid-row:1 / span 2;height:100vh;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:14px 10px;gap:2px;align-self:start}
-  nav.nav a{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:46px;padding:0 14px;border-radius:12px;font-size:15px}
+  .top .back{display:none!important}
+  nav.nav a{flex:none;flex-direction:row;justify-content:flex-start;gap:12px;height:42px;padding:0 14px;border-radius:12px;font-size:15px}
   nav.nav{background:linear-gradient(180deg,#151A2E 0%,#1A2150 55%,#1B2FA8 130%);border-right:0;padding:16px 12px;gap:3px;box-shadow:4px 0 24px rgba(21,26,46,.18)}
   nav.nav .sidelogo{color:#fff}
   nav.nav .sidelogo span{color:#fff}
-  .navlbl{display:block!important;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.38);padding:16px 14px 6px}
+  .navlbl{display:block!important;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.38);padding:12px 14px 4px}
   nav.nav a{color:rgba(255,255,255,.72);position:relative;transition:background .15s,color .15s,transform .15s}
   nav.nav a:hover{background:rgba(255,255,255,.08);color:#fff}
   nav.nav a.on{background:linear-gradient(90deg,rgba(255,138,31,.26),rgba(255,255,255,.06));color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
@@ -301,6 +302,7 @@ const IC={
  home:'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
  cart:'M3 4h2l2.4 10.2a1 1 0 001 .8h8.7a1 1 0 001-.8L20 7H6.2M9 20h.01M17 20h.01',
  box:'M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8',
+ list:'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
  bag:'M6 7h12l1 13H5L6 7zM9 7a3 3 0 016 0',
  users:'M16 19v-1a4 4 0 00-4-4H8a4 4 0 00-4 4v1M10 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM20 19v-1a3.5 3.5 0 00-2.5-3.3M16 4.2a3.5 3.5 0 010 6.6',
  wallet:'M3 7a2 2 0 012-2h13v4M3 7v10a2 2 0 002 2h15a1 1 0 001-1V9a1 1 0 00-1-1H5a2 2 0 01-2-1zM17 14h.01',
@@ -521,11 +523,12 @@ async function scanner(onCode,continuous){
 
 /* ---------- router y estructura ---------- */
 const NAV=[
- {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},{r:'productos',l:'Productos',i:'box',g:'Inventario'},
- {r:'compras',l:'Compras',i:'bag',w:1},{r:'clientes',l:'Clientes',i:'users',w:1,g:'Negocio'},{r:'caja',l:'Caja',i:'wallet'},
- {r:'reportes',l:'Reportes',i:'chart',w:1},{r:'mas',l:'Más',i:'more',n:1}
+ {r:'home',l:'Inicio',i:'home',g:'Principal'},{r:'vender',l:'Vender',i:'cart'},
+ {r:'productos',l:'Productos',i:'box',g:'Mi mercancía'},{r:'inventario',l:'Inventario',i:'list',w:1},{r:'compras',l:'Compras',i:'bag',w:1},{r:'proveedores',l:'Proveedores',i:'truck',w:1},
+ {r:'clientes',l:'Clientes y fiados',i:'users',w:1,g:'Mi negocio'},{r:'caja',l:'Mi caja',i:'wallet'},{r:'reportes',l:'¿Cómo voy?',i:'chart',w:1},
+ {r:'mas',l:'Más',i:'more',n:1}
 ];
-const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',compras:'Compras',compra:'Nueva compra',clientes:'Clientes',caja:'Caja',reportes:'Reportes',mas:'Más'};
+const TITLES={home:'Inicio',vender:'Vender',productos:'Productos',inventario:'Inventario',compras:'Compras',proveedores:'Proveedores',compra:'Nueva compra',clientes:'Clientes y fiados',caja:'Mi caja',reportes:'¿Cómo voy?',mas:'Más'};
 const PARENT={compra:'compras'};
 function parseHash(){const h=(location.hash||'#/home').slice(2);const [r,q]=h.split('?');return{r:r||'home',q:Object.fromEntries(new URLSearchParams(q||''))}}
 const go=r=>{location.hash='#/'+r};
@@ -616,7 +619,7 @@ const firstName=n=>{const w=(n||'').trim().split(/\s+/)[0]||'';return w.charAt(0
 VIEWS.home={
  html(){
   const [a,b]=range('hoy'),ss=salesIn(a,b),ven=sum(ss.filter(s=>s.method!=='autoconsumo'),s=>s.total);
-  const mods=[['vender','cart','Vender','Cobrar rápido'],['productos','box','Productos',`${S.products.length} creados`],['compras','bag','Compras','Surtido y proveedores'],['clientes','users','Clientes','Fiados y abonos'],['caja','wallet','Caja','Abrir, mover y cerrar'],['reportes','chart','Reportes','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
+  const mods=[['vender','cart','Vender','Cobrar rápido'],['productos','box','Productos',`${S.products.length} creados`],['inventario','list','Inventario','Lo que te queda'],['compras','bag','Compras','Lo que te llega'],['proveedores','truck','Proveedores','A quién le debes'],['clientes','users','Clientes y fiados','Quién te debe'],['caja','wallet','Mi caja','Abrir, mover y cerrar'],['reportes','chart','¿Cómo voy?','Ventas y ganancias'],['mas','gear','Ajustes','Respaldo y más']];
   const tips=insights();
   return `
    ${S.meta.practice?`<div class="banner">${ic('bulb')}<div><b>Modo práctica.</b> Los datos son de ejemplo para que aprendas sin riesgo.</div><button class="btn sm" data-act="exit-practice">Empezar con mis datos</button></div>`:''}
@@ -633,6 +636,42 @@ VIEWS.home={
    </div>`;
  }
 };
+
+
+/* INVENTARIO */
+let invF='todos';
+const INV_WHY=['Conteo de inventario','Producto dañado','Producto vencido','Se perdió o faltó','Regalo o muestra','Otro motivo'];
+VIEWS.inventario={
+ html(){
+  const P=S.products,val=sum(P,p=>Math.max(0,p.stock)*p.cost),uds=sum(P,p=>Math.max(0,p.stock));
+  const low=P.filter(p=>p.stock>0&&p.stock<=p.min).length,out=P.filter(p=>p.stock<=0).length;
+  return `<div class="kpis"><div class="kpi hl"><div class="l">Valor de tu mercancía</div><div class="v">${money(val)}</div></div><div class="kpi"><div class="l">Unidades</div><div class="v">${qfmt(uds)}</div></div><div class="kpi"><div class="l">Por acabarse</div><div class="v">${low}</div></div><div class="kpi"><div class="l">Agotados</div><div class="v">${out}</div></div></div>
+  <div class="searchbar mt"><input id="iq" class="in" placeholder="Buscar producto" autocomplete="off"></div>
+  <div class="chips mt">${[['todos','Todos'],['bajo','Por acabarse'],['agotado','Agotados']].map(x=>`<button data-act="invf" data-f="${x[0]}" class="${invF===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  <div class="panel mt"><div id="ilist" class="list"></div></div>
+  <p class="mut sm center mt">Toca un producto para corregir su cantidad (conteo, dañado, vencido…).</p>`;
+ },
+ after(){ilist();$('#iq').addEventListener('input',ilist)}
+};
+function ilist(){
+  const el=$('#ilist');if(!el)return;
+  const q=norm(($('#iq')||{}).value||'');let r=S.products.slice();
+  if(q)r=r.filter(p=>norm(p.name).includes(q)||(p.barcode||'').includes(q));
+  if(invF==='bajo')r=r.filter(p=>p.stock>0&&p.stock<=p.min);
+  if(invF==='agotado')r=r.filter(p=>p.stock<=0);
+  r.sort((a,b)=>(a.stock-a.min)-(b.stock-b.min)||a.name.localeCompare(b.name));
+  if(!S.products.length){el.innerHTML=`<div class="empty"><div class="big">📦</div><b>Aún no hay mercancía</b>Crea tus productos para llevar el inventario.<div class="mt"><button class="btn pri" data-act="new-product">Crear producto</button></div></div>`;return}
+  if(!r.length){el.innerHTML=`<div class="empty"><b>Nada por aquí</b>Prueba con otro filtro.</div>`;return}
+  el.innerHTML=r.slice(0,300).map(p=>{const st=p.stock<=0?['out','Agotado']:p.stock<=p.min?['low','Quedan '+qfmt(p.stock)]:['ok',qfmt(p.stock)+' und'];
+    return `<button class="item" data-act="adj-stock" data-id="${p.id}"><div class="avatar">${esc(p.name.slice(0,1).toUpperCase())}</div><div class="grow"><div class="t">${esc(p.name)}</div><div class="s">Mínimo ${qfmt(p.min||0)} · ${money(p.stock*p.cost)} al costo</div></div><div class="right"><span class="badge ${st[0]}">${st[1]}</span></div></button>`}).join('');
+}
+function adjustForm(id){
+  const p=prod(id);if(!p)return;
+  const ov=modal('Corregir cantidad',`<form data-form="adj" data-id="${p.id}"><p style="margin:0 0 10px"><b>${esc(p.name)}</b><br><span class="mut sm">En el sistema hay ${qfmt(p.stock)} unidades.</span></p>
+   <div class="fg"><label class="f">¿Cuántas hay realmente?</label><input class="in" name="qty" inputmode="decimal" value="${qfmt(p.stock)}" autofocus required></div>
+   <div class="fg"><label class="f">Motivo</label><select class="in" name="why">${INV_WHY.map(w=>`<option>${w}</option>`).join('')}</select></div>
+   <button class="btn pri big">Guardar</button></form>`);
+}
 
 /* VENDER */
 let cart=[], cartCust='';
@@ -968,13 +1007,15 @@ function closeText(c){
 let pd=null;
 VIEWS.compras={
  html(){
-  const tab=window._ctab||'compras';
-  return `<div class="seg"><button class="${tab==='compras'?'on':''}" data-act="ctab" data-t="compras">Compras</button><button class="${tab==='prov'?'on':''}" data-act="ctab" data-t="prov">Proveedores</button></div>
-  <div class="mt">${tab==='compras'?`
-   <button class="btn pri big" data-act="new-purchase">${ic('plus','sm')} Registrar compra</button>
-   <div class="panel mt"><h3>Últimas compras</h3><div class="list">${S.purchases.length?S.purchases.slice().reverse().slice(0,40).map(p=>`<button class="item" data-act="purchase-detail" data-id="${p.id}"><div class="avatar">${ic('bag','sm')}</div><div class="grow"><div class="t">${esc((supp(p.supplierId)||{}).name||'Sin proveedor')}</div><div class="s">${fmtDT(p.ts)}${p.invoice?' · Fact. '+esc(p.invoice):''}</div></div><div class="right"><div class="b">${money(p.total)}</div><span class="badge ${p.method==='credito'?'low':'gray'}">${{efectivo:'Efectivo',digital:'Transferencia',credito:'A crédito'}[p.method]}</span></div></button>`).join(''):'<div class="empty"><div class="big">🛒</div><b>Aún no hay compras</b>Registra lo que le compras a tus proveedores y el inventario se actualiza solo.</div>'}</div></div>`
-   :`<button class="btn pri big" data-act="new-supp">${ic('plus','sm')} Nuevo proveedor</button>
-   <div class="panel mt"><div class="list">${S.suppliers.length?S.suppliers.map(s=>{const b=suppBalance(s.id);return `<button class="item" data-act="supp-detail" data-id="${s.id}"><div class="avatar">${ic('truck','sm')}</div><div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${esc(s.phone||'Sin celular')}</div></div><div class="right">${b>0?`<div class="b bad">${money(b)}</div><div class="xs mut">le debes</div>`:'<span class="badge ok">Al día</span>'}</div></button>`}).join(''):'<div class="empty"><div class="big">🚚</div><b>Sin proveedores</b>Agrega quién te surte para llevar lo que le debes.</div>'}</div></div>`}</div>`;
+  return `<button class="btn pri big" data-act="new-purchase">${ic('plus','sm')} Registrar compra</button>
+   <div class="panel mt"><h3>Últimas compras</h3><div class="list">${S.purchases.length?S.purchases.slice().reverse().slice(0,40).map(p=>`<button class="item" data-act="purchase-detail" data-id="${p.id}"><div class="avatar">${ic('bag','sm')}</div><div class="grow"><div class="t">${esc((supp(p.supplierId)||{}).name||'Sin proveedor')}</div><div class="s">${fmtDT(p.ts)}${p.invoice?' · Fact. '+esc(p.invoice):''}</div></div><div class="right"><div class="b">${money(p.total)}</div><span class="badge ${p.method==='credito'?'low':'gray'}">${{efectivo:'Efectivo',digital:'Transferencia',credito:'A crédito'}[p.method]}</span></div></button>`).join(''):'<div class="empty"><div class="big">🛒</div><b>Aún no hay compras</b>Registra lo que le compras a tus proveedores y el inventario se actualiza solo.</div>'}</div></div>`;
+ }
+};
+VIEWS.proveedores={
+ html(){
+  const debt=sum(S.suppliers,x=>Math.max(0,suppBalance(x.id)));
+  return `${debt>0?`<div class="banner" style="background:var(--bad-l);color:var(--bad)">${ic('truck')}<div><b>Les debes ${money(debt)}</b> a tus proveedores.</div></div>`:''}`+`<button class="btn pri big" data-act="new-supp">${ic('plus','sm')} Nuevo proveedor</button>
+   <div class="panel mt"><div class="list">${S.suppliers.length?S.suppliers.map(s=>{const b=suppBalance(s.id);return `<button class="item" data-act="supp-detail" data-id="${s.id}"><div class="avatar">${ic('truck','sm')}</div><div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${esc(s.phone||'Sin celular')}</div></div><div class="right">${b>0?`<div class="b bad">${money(b)}</div><div class="xs mut">le debes</div>`:'<span class="badge ok">Al día</span>'}</div></button>`}).join(''):'<div class="empty"><div class="big">🚚</div><b>Sin proveedores</b>Agrega quién te surte para llevar lo que le debes.</div>'}</div></div>`;
  }
 };
 VIEWS.compra={
@@ -1109,7 +1150,7 @@ function dl(text,name,type){const a=document.createElement('a');a.href=URL.creat
 VIEWS.mas={
  html(){
   const last=S.meta.lastBackup?`Última copia: ${fmtDT(S.meta.lastBackup)}`:'Aún no has guardado una copia';
-  return `<div class="cards"><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Y proveedores</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes</b><span>Fiados y abonos</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>Reportes</b><span>Ventas y ganancias</span></a></div>
+  return `<div class="cards"><a class="mod" data-act="go" data-to="inventario"><div class="ic">${ic('list','lg')}</div><b>Inventario</b><span>Lo que te queda</span></a><a class="mod" data-act="go" data-to="compras"><div class="ic">${ic('bag','lg')}</div><b>Compras</b><span>Lo que te llega</span></a><a class="mod" data-act="go" data-to="proveedores"><div class="ic">${ic('truck','lg')}</div><b>Proveedores</b><span>A quién le debes</span></a><a class="mod" data-act="go" data-to="clientes"><div class="ic">${ic('users','lg')}</div><b>Clientes y fiados</b><span>Quién te debe</span></a><a class="mod" data-act="go" data-to="reportes"><div class="ic">${ic('chart','lg')}</div><b>¿Cómo voy?</b><span>Ventas y ganancias</span></a></div>
   <div class="panel mt2"><h3>Copia de seguridad</h3><p class="mut sm" style="margin:0 0 10px">Tus datos se guardan solo en este equipo. Descarga una copia cada semana y guárdala en tu correo o en Drive. ${last}.</p>
    <div class="g2"><button class="btn pri" data-act="backup">${ic('down','sm')} Descargar copia</button><button class="btn" data-act="restore">${ic('up','sm')} Restaurar</button></div><input type="file" id="rfile" accept=".json,application/json" class="hide"></div>
   <div class="panel"><h3>Precios y ganancia</h3><form data-form="pricing">
@@ -1206,6 +1247,8 @@ document.addEventListener('click',async e=>{
    'wa-sale'(){const s=S.sales.find(x=>x.id===d.id);window.open(waLink((cust(s.customerId)||{}).phone||'',saleText(s)),'_blank')},
    'new-product'(){productForm(null,{barcode:d.code||'',name:d.name||'',buy:!!d.buy})},
    'edit-product'(){productForm(d.id)},
+   'adj-stock'(){adjustForm(d.id)},
+   invf(){invF=d.f;render()},
    'del-product'(){ask('Eliminar producto','Se borra del inventario. Las ventas pasadas se conservan.','Eliminar',true).then(ok=>{if(ok){S.products=S.products.filter(p=>p.id!==d.id);save();closeModal();toast('Producto eliminado');render()}})},
    pfilter(){window._pf=d.f;$$('#pf button').forEach(b=>b.classList.toggle('on',b===el));plist()},
    'new-cust'(){custForm('')},
@@ -1258,6 +1301,8 @@ document.addEventListener('submit',e=>{
   if(k==='opencaja'){const initial=digits(new FormData(f).get('initial'));const c={id:uid(),openedAt:Date.now(),initial,closedAt:0};S.cajas.push(c);save();const ov=modalEl();ov&&ov._res&&ov._res(c);closeModal();toast('Caja abierta','ok');render()}
   if(k==='mov'){const fd=new FormData(f),c=openCaja();S.movements.push({id:uid(),ts:Date.now(),type:fd.get('type'),concept:fd.get('concept').trim(),amount:digits(fd.get('amount')),cajaId:c.id});save();closeModal();toast('Movimiento guardado','ok');render()}
   if(k==='closecaja')saveClose(f);
+  if(k==='adj'){const fd=new FormData(f),p=prod(f.dataset.id),q=dec(fd.get('qty'));if(!p||!(q>=0))return toast('Escribe una cantidad válida','warn');
+    (S.adjusts=S.adjusts||[]).push({id:uid(),ts:Date.now(),pid:p.id,name:p.name,before:p.stock,after:q,why:fd.get('why')});p.stock=q;save();closeModal();toast('Cantidad corregida','ok');render();return}
   if(k==='pin'){const fd=new FormData(f),a=(fd.get('pin')||'').trim(),b=(fd.get('pin2')||'').trim();
     if(!/^\d{4,6}$/.test(a))return toast('El PIN debe tener de 4 a 6 números','warn');
     if(a!==b)return toast('Los dos PIN no coinciden','warn');

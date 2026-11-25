@@ -330,6 +330,8 @@ video#cam{width:100%;border-radius:16px;background:#000;max-height:60vh}
 .vfoot button{background:none;border:0;color:var(--mut);font-weight:700;font-size:13.5px;cursor:pointer}
 .favchk{display:flex;gap:10px;align-items:center;margin:4px 0 14px;font-weight:700;cursor:pointer}
 .favchk input{width:22px;height:22px;accent-color:var(--pri)}
+.crow{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;text-align:left;cursor:pointer;min-width:0}
+.crow .grow{min-width:0}
 </style>
 </head>
 <body>
@@ -1096,29 +1098,35 @@ function saveProduct(f){
 }
 
 /* CLIENTES */
+let custF='todos';
+const agoTxt=t=>{if(!t)return 'Sin pagos';const d=Math.floor((sod(Date.now())-sod(t))/DAY);return d<=0?'Pagó hoy':d===1?'Pagó ayer':`Pagó hace ${d} días`};
+const lastPay=id=>S.payments.filter(x=>x.type==='cliente'&&x.refId===id&&!x.void).reduce((m,x)=>Math.max(m,x.ts),0);
 VIEWS.clientes={
  html(){return `<div class="searchbar"><input id="cq" class="in" placeholder="Buscar cliente" autocomplete="off"><button class="btn pri" data-act="new-cust">${ic('plus','sm')}<span>Nuevo</span></button></div>
   <div class="kpis mt"><div class="kpi hl"><div class="l">Total por cobrar</div><div class="v">${money(totalCartera())}</div></div><div class="kpi"><div class="l">Clientes con deuda</div><div class="v">${S.customers.filter(c=>custBalance(c.id)>0).length}</div></div></div>
+  <div class="chips mt">${[['todos','Todos'],['deben','Me deben'],['aldia','Al día']].map(x=>`<button data-act="custf" data-f="${x[0]}" class="${custF===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
   <div class="panel mt"><div id="clist" class="list"></div></div>`},
  after(){clist();$('#cq').addEventListener('input',clist)}
 };
 function clist(){
   const el=$('#clist');if(!el)return;const q=norm($('#cq').value.trim());
-  let r=S.customers.map(c=>({c,b:custBalance(c.id)})).filter(x=>!q||norm(x.c.name).includes(q)||(x.c.phone||'').includes(q)).sort((a,b)=>b.b-a.b||a.c.name.localeCompare(b.c.name));
+  let r=S.customers.map(c=>({c,b:custBalance(c.id)})).filter(x=>(!q||norm(x.c.name).includes(q)||(x.c.phone||'').includes(q)||(x.c.doc||'').includes(q))&&(custF==='todos'||(custF==='deben'?x.b>0:x.b<=0))).sort((a,b)=>b.b-a.b||a.c.name.localeCompare(b.c.name));
   if(!S.customers.length){el.innerHTML=`<div class="empty"><div class="big">👥</div><b>Aún no tienes clientes</b>Crea uno para poder fiar y llevar su cuenta.<div class="mt"><button class="btn pri" data-act="new-cust">Crear cliente</button></div></div>`;return}
-  el.innerHTML=r.map(({c,b})=>`<button class="item" data-act="cust-detail" data-id="${c.id}"><div class="avatar">${esc(c.name.slice(0,1).toUpperCase())}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone||'Sin celular')}</div></div><div class="right">${b>0?`<div class="b bad">${money(b)}</div><div class="xs mut">debe</div>`:`<span class="badge ok">Al día</span>`}</div></button>`).join('');
+  if(!r.length){el.innerHTML=`<div class="empty"><b>Nadie por aquí</b>Prueba con otro filtro o nombre.</div>`;return}
+  el.innerHTML=r.map(({c,b})=>`<div class="item" style="cursor:default"><button class="grow crow" data-act="cust-detail" data-id="${c.id}"><div class="avatar">${esc(c.name.slice(0,1).toUpperCase())}</div><div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone||'Sin celular')}${c.doc?' · CC '+esc(c.doc):''}</div><div class="s">${agoTxt(lastPay(c.id))}</div></div></button><div class="right">${b>0?`<div class="b bad">${money(b)}</div><button class="btn sm pri" style="margin-top:4px" data-act="cust-abono" data-id="${c.id}">Cobrar</button>`:`<span class="badge ok">Al día</span>`}</div></div>`).join('');
 }
 function custForm(id,after){
   const c=id?cust(id):{name:'',phone:'',notes:''};
   const ov=modal(id?'Editar cliente':'Nuevo cliente',`<form data-form="cust" data-id="${id||''}">
    <div class="fg"><label class="f">Nombre</label><input class="in" name="name" required value="${esc(c.name)}" autofocus></div>
+   <div class="fg"><label class="f">Documento (cédula o NIT, opcional)</label><input class="in" name="doc" inputmode="numeric" value="${esc(c.doc||'')}" placeholder="Ej: 1234567890"></div>
    <div class="fg"><label class="f">Celular (para recordarle por WhatsApp)</label><input class="in" name="phone" inputmode="tel" value="${esc(c.phone||'')}" placeholder="3001234567"></div>
    <div class="fg"><label class="f">Nota (opcional)</label><input class="in" name="notes" value="${esc(c.notes||'')}" placeholder="Ej: paga los viernes"></div>
    <button class="btn pri big">Guardar cliente</button></form>`);
   ov._after=after;
 }
 function saveCust(f){
-  const fd=new FormData(f),id=f.dataset.id,o={name:fd.get('name').trim(),phone:fd.get('phone').replace(/[^\d]/g,''),notes:fd.get('notes').trim()};
+  const fd=new FormData(f),id=f.dataset.id,o={name:fd.get('name').trim(),doc:(fd.get('doc')||'').replace(/[^\d]/g,''),phone:fd.get('phone').replace(/[^\d]/g,''),notes:fd.get('notes').trim()};
   if(!o.name)return;
   let c;if(id){c=cust(id);Object.assign(c,o)}else{c={id:uid(),...o};S.customers.push(c)}
   save();const ov=modalEl();const cb=ov&&ov._after;closeModal();toast('Cliente guardado','ok');
@@ -1130,6 +1138,7 @@ function custDetail(id){
             ...S.payments.filter(p=>p.type==='cliente'&&p.refId===id&&!p.void).map(p=>({ts:p.ts,t:'Abono ('+(p.method==='efectivo'?'efectivo':'transferencia')+')',a:-p.amount}))].sort((a,b)=>b.ts-a.ts).slice(0,25);
   modal(esc(c.name),`
    <div class="kpis"><div class="kpi ${b>0?'':'hl'}"><div class="l">Saldo</div><div class="v ${b>0?'bad':''}">${money(b)}</div></div><div class="kpi"><div class="l">Celular</div><div class="v" style="font-size:16px">${esc(c.phone||'—')}</div></div></div>
+   <div class="mut sm" style="margin:8px 2px 0">${c.doc?'Documento: '+esc(c.doc)+' · ':''}${agoTxt(lastPay(id))}</div>
    <div class="g2 mt"><button class="btn pri" data-act="cust-abono" data-id="${id}" ${b<=0?'disabled':''}>Registrar abono</button><button class="btn" data-act="cust-wa" data-id="${id}" ${b<=0||!c.phone?'disabled':''}>${ic('chat','sm')} Recordar</button></div>
    <div class="mt2 b">Movimientos</div>
    <div class="list">${mv.length?mv.map(m=>`<div class="item" style="cursor:default"><div class="grow"><div class="t">${m.t}</div><div class="s">${fmtDT(m.ts)}</div></div><div class="b ${m.a<0?'ok':''}">${m.a<0?'−':''}${money(Math.abs(m.a))}</div></div>`).join(''):'<div class="empty">Sin movimientos todavía</div>'}</div>
@@ -1225,12 +1234,27 @@ function closeText(c){
 
 /* COMPRAS */
 let pd=null;
+let cpP='todo',cpS='';
 VIEWS.compras={
  html(){
   return `<button class="btn pri big" data-act="new-purchase">${ic('plus','sm')} Registrar compra</button>
-   <div class="panel mt"><h3>Últimas compras</h3><div class="list">${S.purchases.length?S.purchases.slice().reverse().slice(0,40).map(p=>`<button class="item" data-act="purchase-detail" data-id="${p.id}"><div class="avatar">${ic('bag','sm')}</div><div class="grow"><div class="t">${esc((supp(p.supplierId)||{}).name||'Sin proveedor')}</div><div class="s">${fmtDT(p.ts)}${p.invoice?' · Fact. '+esc(p.invoice):''}</div></div><div class="right"><div class="b">${money(p.total)}</div><span class="badge ${p.method==='credito'?'low':'gray'}">${{efectivo:'Efectivo',digital:'Transferencia',credito:'A crédito'}[p.method]}</span></div></button>`).join(''):'<div class="empty"><div class="big">🛒</div><b>Aún no hay compras</b>Registra lo que le compras a tus proveedores y el inventario se actualiza solo.</div>'}</div></div>`;
- }
+  <div class="chips mt">${[['hoy','Hoy'],['7d','Esta semana'],['mes','Este mes'],['todo','Todas']].map(x=>`<button data-act="cpp" data-p="${x[0]}" class="${cpP===x[0]?'on':''}">${x[1]}</button>`).join('')}</div>
+  ${S.suppliers.length?`<select class="in mt" id="cps"><option value="">Todos los proveedores</option>${S.suppliers.map(x=>`<option value="${x.id}" ${x.id===cpS?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}
+  <div class="panel mt"><div id="clist2" class="list"></div></div>`;
+ },
+ after(){const e=$('#cps');if(e)e.onchange=()=>{cpS=e.value;cplist()};cplist()}
 };
+function cplist(){
+  const el=$('#clist2');if(!el)return;
+  const [a,b]=range(cpP);
+  const r=S.purchases.filter(x=>x.ts>=a&&x.ts<b&&(!cpS||x.supplierId===cpS)).sort((x,y)=>y.ts-x.ts).slice(0,150);
+  if(!S.purchases.length){el.innerHTML='<div class="empty"><div class="big">🛒</div><b>Aún no hay compras</b>Registra lo que le compras a tus proveedores y el inventario se actualiza solo.</div>';return}
+  if(!r.length){el.innerHTML='<div class="empty"><b>Sin compras en este período</b>Prueba con otro filtro.</div>';return}
+  const tot=sum(r,x=>x.total);
+  el.innerHTML=`<div class="mut sm" style="padding:2px 4px 8px">${r.length} ${r.length===1?'compra':'compras'} · ${money(tot)}</div>`+r.map(x=>{
+    const sp=supp(x.supplierId),owe=x.method==='credito'&&sp&&suppBalance(sp.id)>0;
+    return `<div class="item" style="cursor:default"><button class="grow crow" data-act="purchase-detail" data-id="${x.id}"><div class="avatar">${ic('bag','sm')}</div><div class="grow"><div class="t">${esc((sp||{}).name||'Sin proveedor')}</div><div class="s">${fmtDT(x.ts)}${x.invoice?' · Fact. '+esc(x.invoice):''}</div></div></button><div class="right"><div class="b">${money(x.total)}</div>${owe?`<button class="btn sm pri" style="margin-top:4px" data-act="supp-pay" data-id="${sp.id}">Pagar</button>`:`<span class="badge ${x.method==='credito'?'low':'gray'}">${{efectivo:'Efectivo',digital:'Transferencia',credito:'A crédito'}[x.method]}</span>`}</div></div>`}).join('');
+}
 VIEWS.proveedores={
  html(){
   const debt=sum(S.suppliers,x=>Math.max(0,suppBalance(x.id)));
@@ -1485,6 +1509,8 @@ document.addEventListener('click',async e=>{
    'new-cust'(){custForm('')},
    'edit-cust'(){closeModal();custForm(d.id)},
    'cust-detail'(){custDetail(d.id)},
+   custf(){custF=d.f;render()},
+   cpp(){cpP=d.p;render()},
    'del-cust'(){if(custBalance(d.id)>0){toast('Tiene deuda pendiente. Cóbrala antes de eliminar.','warn');return}ask('Eliminar cliente','Se borra de tu lista.','Eliminar',true).then(ok=>{if(ok){S.customers=S.customers.filter(c=>c.id!==d.id);save();closeModal();render()}})},
    'cust-abono'(){closeModal();abonoForm(d.id,'cliente')},
    'cust-wa'(){const c=cust(d.id);window.open(waLink(c.phone,`Hola ${c.name}, te escribimos de ${S.meta.business}. Tienes un saldo pendiente de ${money(custBalance(c.id))}. ¡Gracias por tu compra y tu pronto pago!`),'_blank')},
